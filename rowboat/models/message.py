@@ -18,8 +18,10 @@ from rowboat.models.user import User
 from rowboat.sql import BaseModel
 
 from yaml import load
-    with open('config.yaml', 'r') as f:
-        config = load(f)
+
+
+with open('config.yaml', 'r') as f:
+    config = load(f)
 
 EMOJI_RE = re.compile(r'<:.+:([0-9]+)>')
 
