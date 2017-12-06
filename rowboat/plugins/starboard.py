@@ -40,6 +40,9 @@ class ChannelConfig(SlottedModel):
 
     # Prevent users from starring their own posts
     prevent_self_star = Field(bool, default=False)
+	
+    # Max age for starred messages
+    max_age = Field(int, default=32)
 
     def get_color(self, count):
         ratio = min(count / float(self.star_color_max), 1.0)
@@ -200,7 +203,7 @@ class StarboardPlugin(Plugin):
                 (StarboardEntry.message_id == mid)
             ).execute()
 
-        self.queue_update(event.guild.id, event.config)
+        self.queue_update(event.guild.id, event.config, event)
         event.msg.reply(u'Forcing an update on message {}'.format(mid))
 
     @Plugin.command('block', '<user:user>', group='stars', level=CommandLevels.MOD)
@@ -222,7 +225,7 @@ class StarboardPlugin(Plugin):
         StarboardEntry.block_user(user.id)
 
         # Finally, queue an update for the guild
-        self.queue_update(event.guild.id, event.config)
+        self.queue_update(event.guild.id, event.config, event)
 
         event.msg.reply(u'Blocked {} from the starboard'.format(
             user,
@@ -245,7 +248,7 @@ class StarboardPlugin(Plugin):
         StarboardEntry.unblock_user(user.id)
 
         # Finally, queue an update for the guild
-        self.queue_update(event.guild.id, event.config)
+        self.queue_update(event.guild.id, event.config, event)
 
         event.msg.reply(u'Unblocked {} from the starboard'.format(
             user,
@@ -265,7 +268,7 @@ class StarboardPlugin(Plugin):
             event.msg.reply(u'No hidden starboard message with that ID')
             return
 
-        self.queue_update(event.guild.id, event.config)
+        self.queue_update(event.guild.id, event.config, event)
         event.msg.reply(u'Message {} has been unhidden from the starboard'.format(
             mid,
         ))
@@ -283,7 +286,7 @@ class StarboardPlugin(Plugin):
             event.msg.reply(u'No starred message with that ID')
             return
 
-        self.queue_update(event.guild.id, event.config)
+        self.queue_update(event.guild.id, event.config, event)
         event.msg.reply(u'Message {} has been hidden from the starboard'.format(
             mid,
         ))
@@ -320,7 +323,7 @@ class StarboardPlugin(Plugin):
                     (StarboardEntry.message_id == star.message_id)
                 ).execute()
 
-        self.queue_update(event.guild.id, event.config)
+        self.queue_update(event.guild.id, event.config, event)
         info_msg.delete()
         event.msg.reply(':ballot_box_with_check: Starboard Updated!')
 
@@ -338,36 +341,41 @@ class StarboardPlugin(Plugin):
         if event.guild.id not in self.locks:
             event.msg.reply(':warning: starboard is not locked')
             return
-
         # If the user does not wish to have the messages starred during the lock
         #  duration posted, block them entirely and unflag them as dirty.
         if block:
+            sb_id, board = event.config.get_board(event.channel.id)
+            if not sb_id:
+                return
             StarboardEntry.update(dirty=False, blocked=True).join(Message).where(
                 (StarboardEntry.dirty == 1) &
                 (Message.guild_id == event.guild.id) &
-                (Message.timestamp > (datetime.utcnow() - timedelta(hours=32)))
+                (Message.timestamp > (datetime.utcnow() - timedelta(hours=board.max_age)))
             ).execute()
 
         del self.locks[event.guild.id]
         event.msg.reply(':white_check_mark: starboard has been unlocked')
 
-    def queue_update(self, guild_id, config):
+    def queue_update(self, guild_id, config, event):
         if guild_id in self.locks:
             return
 
         if guild_id not in self.updates or not self.updates[guild_id].active():
             if guild_id in self.updates:
                 del self.updates[guild_id]
-            self.updates[guild_id] = Debounce(self.update_starboard, 2, 6, guild_id=guild_id, config=config.get())
+            self.updates[guild_id] = Debounce(self.update_starboard, 2, 6, guild_id=guild_id, config=config.get(), event=event)
         else:
             self.updates[guild_id].touch()
 
-    def update_starboard(self, guild_id, config):
+    def update_starboard(self, guild_id, config, event):
+        sb_id2, board = config.get_board(event.channel.id)
+        if not sb_id2:
+            return
         # Grab all dirty stars that where posted in the last 32 hours
         stars = StarboardEntry.select().join(Message).where(
             (StarboardEntry.dirty == 1) &
             (Message.guild_id == guild_id) &
-            (Message.timestamp > (datetime.utcnow() - timedelta(hours=32)))
+            (Message.timestamp > (datetime.utcnow() - timedelta(hours=board.max_age)))
         )
 
         for star in stars:
@@ -520,12 +528,12 @@ class StarboardPlugin(Plugin):
             else:
                 return
 
-        self.queue_update(event.guild.id, event.config)
+        self.queue_update(event.guild.id, event.config, event)
 
     @Plugin.listen('MessageReactionRemove', conditional=is_star_event)
     def on_message_reaction_remove(self, event):
         StarboardEntry.remove_star(event.message_id, event.user_id)
-        self.queue_update(event.guild.id, event.config)
+        self.queue_update(event.guild.id, event.config, event)
 
     @Plugin.listen('MessageReactionRemoveAll')
     def on_message_reaction_remove_all(self, event):
@@ -536,7 +544,7 @@ class StarboardPlugin(Plugin):
         ).where(
             (StarboardEntry.message_id == event.message_id)
         ).execute()
-        self.queue_update(event.guild.id, event.config)
+        self.queue_update(event.guild.id, event.config, event)
 
     @Plugin.listen('MessageUpdate')
     def on_message_update(self, event):
@@ -551,7 +559,7 @@ class StarboardPlugin(Plugin):
         ).execute()
 
         if count:
-            self.queue_update(event.guild.id, event.config)
+            self.queue_update(event.guild.id, event.config, event)
 
     @Plugin.listen('MessageDelete')
     def on_message_delete(self, event):
