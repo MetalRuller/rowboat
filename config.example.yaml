@@ -1,5 +1,7 @@
 token: ''
 
+DSN: ''
+
 manhole_enable: true
 manhole_bind: 127.0.0.1:7171
 
@@ -21,3 +23,7 @@ bot:
     - rowboat.plugins.sql
     - rowboat.plugins.internal
     - rowboat.plugins.stats
+
+web:
+  SECRET_KEY: ''
+  DOMAIN: 

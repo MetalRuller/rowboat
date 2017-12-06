@@ -124,6 +124,18 @@ class CorePlugin(Plugin):
                     # Update guild access
                     self.update_rowboat_guild_access()
 
+					# Update bot nickname
+
+                    if config.nickname:
+                        def set_nickname():
+                            m = self.state.guilds.get(data['id']).members.select_one(id=self.state.me.id)
+                            if m and m.nick != config.nickname:
+                                try:
+                                    m.set_nickname(config.nickname)
+                                except APIException as e:
+                                    self.log.warning('Failed to set nickname for guild %s (%s)', event.guild, e.content)
+                        self.spawn_later(5, set_nickname)
+
                     # Finally, emit the event
                     self.emitter.emit('GUILD_CONFIG_UPDATE', self.guilds[data['id']], config)
                 except:
@@ -140,7 +152,7 @@ class CorePlugin(Plugin):
                     )
 
                 self.log.info(u'Leaving guild %s', self.guilds[data['id']].name)
-                self.guilds[data['id']].leave()
+                self.state.guilds.get(data['id']).leave()
 
     def unload(self, ctx):
         ctx['guilds'] = self.guilds
