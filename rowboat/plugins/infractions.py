@@ -583,7 +583,7 @@ class InfractionsPlugin(Plugin):
                 conditional=lambda e: (
                     e.emoji.id in (GREEN_TICK_EMOJI_ID, RED_TICK_EMOJI_ID) and
                     e.user_id == event.author.id
-                )).get(timeout=10)
+                )).get(timeout=event.config.confirm_actions_expiry)
         except gevent.Timeout:
             return
         finally:
