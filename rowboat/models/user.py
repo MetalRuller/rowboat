@@ -160,7 +160,7 @@ class Infraction(BaseModel):
 
     @staticmethod
     def admin_config(event):
-        return getattr(event.base_config.plugins, 'admin', None)
+        return getattr(event.base_config.plugins, 'infractions', None)
 
     @classmethod
     def temprole(cls, plugin, event, member, role_id, reason, expires_at):
@@ -336,6 +336,7 @@ class Infraction(BaseModel):
     def mute(cls, plugin, event, member, reason):
         from rowboat.plugins.modlog import Actions
         admin_config = cls.admin_config(event)
+        #admin_config = event.config
 
         plugin.call(
             'ModLogPlugin.create_debounce',
@@ -368,6 +369,7 @@ class Infraction(BaseModel):
     def tempmute(cls, plugin, event, member, reason, expires_at):
         from rowboat.plugins.modlog import Actions
         admin_config = cls.admin_config(event)
+        #admin_config = event.config
 
         if not admin_config.mute_role:
             plugin.log.warning('Cannot tempmute member %s, no tempmute role', member.id)
