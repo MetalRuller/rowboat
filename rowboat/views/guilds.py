@@ -33,10 +33,12 @@ def with_guild(f=None):
                 else:
                     guild = Guild.select(
                         Guild,
-                        Guild.config['web'][str(g.user.user_id)].alias('role')
+                        Guild.config['web'][str(g.user.user_id)].alias('role'),
+						Guild.config['web']['*'].alias('role')
                     ).where(
                         (Guild.guild_id == kwargs.pop('gid')) &
-                        (~(Guild.config['web'][str(g.user.user_id)] >> None))
+                        ((~(Guild.config['web'][str(g.user.user_id)] >> None)) |
+                        (~(Guild.config['web']['*'] >> None)))
                     ).get()
 
                 return f(guild, *args, **kwargs)
