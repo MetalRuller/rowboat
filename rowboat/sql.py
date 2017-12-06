@@ -32,11 +32,13 @@ class BaseModel(Model):
 
 
 def init_db(env):
+	
     if env == 'docker':
         database.initialize(PostgresqlExtDatabase(
             'rowboat',
             host='db',
             user='postgres',
+			register_hstore=False,
             port=int(os.getenv('PG_PORT', 5432)),
             autorollback=True))
     else:
@@ -44,11 +46,15 @@ def init_db(env):
             'rowboat',
             user='rowboat',
             port=int(os.getenv('PG_PORT', 5432)),
+			register_hstore=False,
             autorollback=True))
+
+    database.execute_sql('CREATE EXTENSION IF NOT EXISTS pg_trgm;')
+    database.execute_sql('CREATE EXTENSION IF NOT EXISTS hstore;')
 
     for model in REGISTERED_MODELS:
         model.create_table(True)
-
+		
         if hasattr(model, 'SQL'):
             database.execute_sql(model.SQL)
 
