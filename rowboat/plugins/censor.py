@@ -90,7 +90,7 @@ class Censorship(Exception):
 @Plugin.with_config(CensorConfig)
 class CensorPlugin(Plugin):
     def compute_relevant_configs(self, event, author):
-        if event.channel_id in event.config.channels:
+        if event.channel.id in event.config.channels:
             yield event.config.channels[event.channel.id]
 
         if event.config.levels:

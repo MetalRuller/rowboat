@@ -14,13 +14,13 @@ from disco.types.message import MessageTable, MessageEmbed
 from rowboat.plugins import RowboatPlugin as Plugin, CommandFail, CommandSuccess
 from rowboat.util.timing import Eventual
 from rowboat.util.input import parse_duration
-from rowboat.types import Field, snowflake
+from rowboat.types import Field, DictField, ListField, snowflake
 from rowboat.types.plugin import PluginConfig
 from rowboat.plugins.modlog import Actions
 from rowboat.models.user import User, Infraction
 from rowboat.models.guild import GuildMemberBackup, GuildBan
 from rowboat.constants import (
-    GREEN_TICK_EMOJI_ID, RED_TICK_EMOJI_ID, GREEN_TICK_EMOJI, RED_TICK_EMOJI
+    GREEN_TICK_EMOJI_ID, RED_TICK_EMOJI_ID, GREEN_TICK_EMOJI, RED_TICK_EMOJI, GREEN_TICK_EMOJI_NORMAL, RED_TICK_EMOJI_REACT
 )
 
 
@@ -50,6 +50,9 @@ class InfractionsConfig(PluginConfig):
 
     # Level required to edit reasons
     reason_edit_level = Field(int, default=int(CommandLevels.ADMIN))
+	
+    # Aliases to roles, can be used in place of IDs in commands
+    role_aliases = DictField(unicode, snowflake)
 
 
 @Plugin.with_config(InfractionsConfig)
@@ -484,7 +487,7 @@ class InfractionsPlugin(Plugin):
             raise CommandFail('invalid user')
 
         self.can_act_on(event, member.id)
-        role_id = role if isinstance(role, (int, long)) else event.config.role_aliases.get(role.lower())
+        role_id = role if isinstance(role, (int, long)) else event.config.role_aliases[role.lower()]
         if not role_id or role_id not in event.guild.roles:
             raise CommandFail('invalid or unknown role')
 
@@ -574,7 +577,7 @@ class InfractionsPlugin(Plugin):
         msg = event.msg.reply('Ok, kick {} users for `{}`?'.format(len(members), args.reason or 'no reason'))
         msg.chain(False).\
             add_reaction(GREEN_TICK_EMOJI).\
-            add_reaction(RED_TICK_EMOJI)
+            add_reaction(RED_TICK_EMOJI_REACT)
 
         try:
             mra_event = self.wait_for_event(
@@ -637,7 +640,48 @@ class InfractionsPlugin(Plugin):
             ))
         else:
             raise CommandFail('invald user')
+			
+			
+    @Plugin.command('mban', parser=True, level=CommandLevels.MOD)
+    @Plugin.parser.add_argument('users', type=long, nargs='+')
+    @Plugin.parser.add_argument('-r', '--reason', default='', help='reason for modlog')
+    def mban(self, event, args):
+        members = []
+        for user_id in args.users:
+            member = event.guild.get_member(user_id)
+            if not member:
+                raise CommandFail('failed to ban {}, user not found'.format(user_id))
 
+            if not self.can_act_on(event, member.id, throw=False):
+                raise CommandFail('failed to ban {}, invalid permissions'.format(user_id))
+
+            members.append(member)
+
+        msg = event.msg.reply('Ok, ban {} users for `{}`?'.format(len(members), args.reason or 'no reason'))
+        msg.chain(False).\
+            add_reaction(GREEN_TICK_EMOJI).\
+            add_reaction(RED_TICK_EMOJI_REACT)
+
+        try:
+            mra_event = self.wait_for_event(
+                'MessageReactionAdd',
+                message_id=msg.id,
+                conditional=lambda e: (
+                    e.emoji.id in (GREEN_TICK_EMOJI_ID, RED_TICK_EMOJI_ID) and
+                    e.user_id == event.author.id
+                )).get(timeout=event.config.confirm_actions_expiry)
+        except gevent.Timeout:
+            return
+        finally:
+            msg.delete()
+
+        if mra_event.emoji.id != GREEN_TICK_EMOJI_ID:
+            return
+
+        for member in members:
+            Infraction.ban(self, event, member, args.reason, guild=event.guild)
+
+        raise CommandSuccess('banned {} users'.format(len(members)))
     @Plugin.command('tempban', '<user:user|snowflake> <duration:str> [reason:str...]', level=CommandLevels.MOD)
     def tempban(self, event, duration, user, reason=None):
         member = event.guild.get_member(user)

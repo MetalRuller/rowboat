@@ -149,12 +149,12 @@ class RedditPlugin(Plugin):
         for gid, config in configs:
             guild = self.state.guilds.get(gid)
             if not guild:
-                self.log.warning('Skipping non existant guild %s', gid)
+                #self.log.warning('Skipping non existant guild %s', gid)
                 continue
 
             channel = self.get_channel(guild, config.channel)
             if not channel:
-                self.log.warning('Skipping non existant channel %s for guild %s (%s)', channel, guild.name, gid)
+                #self.log.warning('Skipping non existant channel %s for guild %s (%s)', channel, guild.name, gid)
                 continue
             last = float(rdb.get('rdt:lpid:{}:{}'.format(channel.id, sub)) or 0)
 

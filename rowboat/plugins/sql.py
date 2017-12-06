@@ -236,7 +236,7 @@ class SQLPlugin(Plugin):
         self.models = {}
         event.msg.reply(':ok_hand: cleared models')
 
-    @Plugin.command('message', '<channel:snowflake> <message:snowflake>', level=-1, group='backfill', global_=True)
+    @Plugin.command('message', '<channel:snowflake> <message:snowflake>', group='backfill', level=-1, global_=True)
     def command_backfill_message(self, event, channel, message):
         channel = self.state.channels.get(channel)
         Message.from_disco_message(channel.get_message(message))

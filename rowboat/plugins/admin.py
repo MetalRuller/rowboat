@@ -29,7 +29,7 @@ from rowboat.models.user import User
 from rowboat.models.guild import GuildMemberBackup, GuildEmoji, GuildVoiceSession
 from rowboat.models.message import Message, Reaction, MessageArchive
 from rowboat.constants import (
-    GREEN_TICK_EMOJI_ID, RED_TICK_EMOJI_ID, GREEN_TICK_EMOJI, RED_TICK_EMOJI
+    GREEN_TICK_EMOJI_ID, RED_TICK_EMOJI_ID, GREEN_TICK_EMOJI, RED_TICK_EMOJI, GREEN_TICK_EMOJI_NORMAL, RED_TICK_EMOJI_REACT
 )
 
 EMOJI_RE = re.compile(r'<:[a-zA-Z0-9_]+:([0-9]+)>')
@@ -306,7 +306,7 @@ class AdminPlugin(Plugin):
 
             msg.chain(False).\
                 add_reaction(GREEN_TICK_EMOJI).\
-                add_reaction(RED_TICK_EMOJI)
+                add_reaction(RED_TICK_EMOJI_REACT)
 
             try:
                 mra_event = self.wait_for_event(
@@ -333,6 +333,11 @@ class AdminPlugin(Plugin):
         self.cleans[event.channel.id] = gevent.spawn(run_clean)
         self.cleans[event.channel.id].join()
         del self.cleans[event.channel.id]
+		
+        if len(messages) > 1:
+            msg = event.msg.reply(':ok_hand: Successfully deleted {} messages.'.format(
+                len(messages)
+            ))
 
     @Plugin.command(
         'add',
@@ -565,7 +570,7 @@ class AdminPlugin(Plugin):
 
         msg.chain(False).\
             add_reaction(GREEN_TICK_EMOJI).\
-            add_reaction(RED_TICK_EMOJI)
+            add_reaction(RED_TICK_EMOJI_REACT)
 
         try:
             mra_event = self.wait_for_event(
@@ -744,8 +749,36 @@ class AdminPlugin(Plugin):
             return
         raise CommandSuccess(u'you have left the {} group'.format(name))
 
-    @Plugin.command('unlock', '<role_id:snowflake>', group='role', level=CommandLevels.ADMIN)
-    def unlock_role(self, event, role_id):
+    @Plugin.command('unlock', '<role:str>', group='role', level=CommandLevels.ADMIN)
+    def unlock_role(self, event, role):
+        role_obj = None
+
+        if role.isdigit() and int(role) in event.guild.roles.keys():
+            role_obj = event.guild.roles[int(role)]
+        elif role.lower() in event.config.role_aliases:
+            role_obj = event.guild.roles.get(event.config.role_aliases[role.lower()])
+        else:
+            # First try exact match
+            exact_matches = [i for i in event.guild.roles.values() if i.name.lower().replace(' ', '') == role.lower()]
+            if len(exact_matches) == 1:
+                role_obj = exact_matches[0]
+            else:
+                # Otherwise we fuzz it up
+                rated = sorted([
+                    (fuzz.partial_ratio(role, r.name.replace(' ', '')), r) for r in event.guild.roles.values()
+                ], key=lambda i: i[0], reverse=True)
+
+                if rated[0][0] > 40:
+                    if len(rated) == 1:
+                        role_obj = rated[0][1]
+                    elif rated[0][0] - rated[1][0] > 20:
+                        role_obj = rated[0][1]
+
+        if not role_obj:
+            raise CommandFail('too many matches for that role, try something more exact or the role ID')
+		
+        role_id = role_obj.id
+
         if role_id not in event.config.locked_roles:
             raise CommandFail('role %s is not locked' % role_id)
 

@@ -155,7 +155,7 @@ class SpamPlugin(Plugin):
                     violation.member,
                     'Spam Detected',
                     datetime.utcnow() + timedelta(seconds=punishment_duration))
-                    self.bot.plugins.get('InfractionsPlugin').queue_infractions()
+                self.bot.plugins.get('InfractionsPlugin').queue_infractions()
             elif punishment == PunishmentType.KICK:
                 Infraction.kick(
                     self,
@@ -169,7 +169,7 @@ class SpamPlugin(Plugin):
                     violation.member,
                     'Spam Detected',
                     datetime.utcnow() + timedelta(seconds=punishment_duration))
-                    self.bot.plugins.get('InfractionsPlugin').queue_infractions()
+                self.bot.plugins.get('InfractionsPlugin').queue_infractions()
             elif punishment == PunishmentType.BAN:
                 Infraction.ban(
                     self,

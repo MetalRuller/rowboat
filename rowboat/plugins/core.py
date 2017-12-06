@@ -30,7 +30,7 @@ from rowboat.models.message import Command
 from rowboat.models.notification import Notification
 from rowboat.plugins.modlog import Actions
 from rowboat.constants import (
-    GREEN_TICK_EMOJI, RED_TICK_EMOJI, ROWBOAT_GUILD_ID, ROWBOAT_USER_ROLE_ID,
+    GREEN_TICK_EMOJI, RED_TICK_EMOJI, ROWBOAT_GUILD_ID, ROWBOAT_USER_ROLE_ID, GREEN_TICK_EMOJI_NORMAL, RED_TICK_EMOJI_REACT,
     ROWBOAT_CONTROL_CHANNEL
 )
 
@@ -123,7 +123,7 @@ class CorePlugin(Plugin):
 
                     # Update guild access
                     self.update_rowboat_guild_access()
-
+                    
 					# Update bot nickname
 
                     if config.nickname:
@@ -135,7 +135,7 @@ class CorePlugin(Plugin):
                                 except APIException as e:
                                     self.log.warning('Failed to set nickname for guild %s (%s)', event.guild, e.content)
                         self.spawn_later(5, set_nickname)
-
+                    
                     # Finally, emit the event
                     self.emitter.emit('GUILD_CONFIG_UPDATE', self.guilds[data['id']], config)
                 except:
@@ -145,14 +145,15 @@ class CorePlugin(Plugin):
                 self.log.info('Restart requested, signaling parent')
                 os.kill(os.getppid(), signal.SIGUSR1)
             elif data['type'] == 'GUILD_DELETE' and data['id'] in self.guilds:
+                _guild = self.state.guilds.get(data['id'])
                 with self.send_control_message() as embed:
                     embed.color = 0xff6961
                     embed.title = u'Guild Force Deleted {}'.format(
-                        self.guilds[data['id']].name,
+                        _guild.name,
                     )
 
-                self.log.info(u'Leaving guild %s', self.guilds[data['id']].name)
-                self.state.guilds.get(data['id']).leave()
+                self.log.info(u'Leaving guild %s', _guild.name)
+                _guild.leave()
 
     def unload(self, ctx):
         ctx['guilds'] = self.guilds
@@ -618,7 +619,7 @@ class CorePlugin(Plugin):
         else:
             event.msg.reply(PY_CODE_BLOCK.format(result))
 
-    @Plugin.command('sync-bans', group='control', level=-1)
+    @Plugin.command('sync-bans', group='control',level=-1)
     def control_sync_bans(self, event):
         guilds = list(Guild.select().where(
             Guild.enabled == 1
@@ -629,9 +630,9 @@ class CorePlugin(Plugin):
         for guild in guilds:
             guild.sync_bans(self.client.state.guilds.get(guild.guild_id))
 
-        msg.edit('<:{}> synced {} guilds'.format(GREEN_TICK_EMOJI, len(guilds)))
+        msg.edit('synced {} guilds'.format(len(guilds)))
 
-    @Plugin.command('reconnect', group='control', level=-1)
+    @Plugin.command('reconnect', group='control',level=-1)
     def control_reconnect(self, event):
         event.msg.reply('Ok, closing connection')
         self.client.gw.ws.close()
@@ -659,19 +660,20 @@ class CorePlugin(Plugin):
                 guild.name,
             ))
 
-        msg.edit(u'Ok, here is a temporary invite for you: {}'.format(
+        msg.edit(u'Ok, here is a temporary invite for you: discord.gg/{}'.format(
             invite.code,
         ))
 
-    @Plugin.command('wh', '<guild:snowflake>', group='guilds', level=-1)
+    @Plugin.command('wh', '<guild:snowflake>',group='guilds', level=-1)
     def guild_whitelist(self, event, guild):
         rdb.sadd(GUILDS_WAITING_SETUP_KEY, str(guild))
         event.msg.reply('Ok, guild %s is now in the whitelist' % guild)
 
-    @Plugin.command('unwh', '<guild:snowflake>', group='guilds', level=-1)
+    @Plugin.command('unwh', '<guild:snowflake>',group='guilds', level=-1)
     def guild_unwhitelist(self, event, guild):
         rdb.srem(GUILDS_WAITING_SETUP_KEY, str(guild))
         event.msg.reply('Ok, I\'ve made sure guild %s is no longer in the whitelist' % guild)
+        Guild.update(whitelist=[]).where(str(Guild.guild_id) == str(guild)).execute()
 
     @Plugin.command('disable', '<plugin:str>', group='plugins', level=-1)
     def plugin_disable(self, event, plugin):
