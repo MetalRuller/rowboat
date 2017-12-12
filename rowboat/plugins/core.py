@@ -634,7 +634,7 @@ class CorePlugin(Plugin):
             guild.name,
         ))
 
-        general_channel = guild.channels.itervalues().next()
+        general_channel = guild.channels[guild.id]
 
         try:
             invite = general_channel.create_invite(
