@@ -122,6 +122,8 @@ def rmv_global_admin(user_id):
     User.update(admin=False).where(User.user_id == user_id).execute()
     print 'Ok, removed {} as a global admin'.format(user_id)
 
+
+
 @cli.command('wh-add')
 @click.argument('guild-id')
 @click.argument('flag')

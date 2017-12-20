@@ -34,11 +34,17 @@ from rowboat.constants import (
     ROWBOAT_CONTROL_CHANNEL
 )
 
+from yaml import load
+
+
+with open('config.yaml', 'r') as f:
+    config = load(f)
+
 PY_CODE_BLOCK = u'```py\n{}\n```'
 
 BOT_INFO = '''
 Rowboat is a moderation and utilitarian bot built for large Discord servers.
-'''
+''' + 'Dashboard: http://{}'.format(config['web']['DOMAIN'])
 
 GUILDS_WAITING_SETUP_KEY = 'gws'
 
@@ -161,7 +167,7 @@ class CorePlugin(Plugin):
         super(CorePlugin, self).unload(ctx)
 
     def update_rowboat_guild_access(self):
-        if ROWBOAT_GUILD_ID not in self.state.guilds or ENV != 'prod':
+        if ROWBOAT_GUILD_ID not in self.state.guilds:# or ENV != 'prod':
             return
 
         rb_guild = self.state.guilds.get(ROWBOAT_GUILD_ID)
@@ -438,10 +444,10 @@ class CorePlugin(Plugin):
             # Otherwise, default to requiring mentions
             commands = list(self.bot.get_commands_for_message(True, {}, '', event.message))
         else:
-            if ENV != 'prod':
-                if not event.message.content.startswith(ENV + '!'):
-                    return
-                event.message.content = event.message.content[len(ENV) + 1:]
+#            if ENV != 'prod':
+#                if not event.message.content.startswith(ENV + '!'):
+#                    return
+#                event.message.content = event.message.content[len(ENV) + 1:]
 
             # DM's just use the commands (no prefix/mention)
             commands = list(self.bot.get_commands_for_message(False, {}, '', event.message))
