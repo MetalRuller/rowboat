@@ -44,10 +44,11 @@ PY_CODE_BLOCK = u'```py\n{}\n```'
 
 BOT_INFO = '''
 Rowboat is a moderation and utilitarian bot built for large Discord servers.
+
 ''' + 'Dashboard: http://{}'.format(config['web']['DOMAIN'])
 
 BOT_INFO = BOT_INFO + '''
-''' + 'Invite Url: (Need whitelist first, ask 777#7777): {}?client_id={}&permissions=8&scope=bot'.format(DISCORD_AUTH_URL, DISCORD_CLIENT_ID)
+''' + 'Invite Url: (For whitelist, ask **777#7777**): {}?client_id={}&permissions=8&scope=bot'.format(DISCORD_AUTH_URL, DISCORD_CLIENT_ID)
 
 GUILDS_WAITING_SETUP_KEY = 'gws'
 
