@@ -31,7 +31,7 @@ from rowboat.models.notification import Notification
 from rowboat.plugins.modlog import Actions
 from rowboat.constants import (
     GREEN_TICK_EMOJI, RED_TICK_EMOJI, ROWBOAT_GUILD_ID, ROWBOAT_USER_ROLE_ID, GREEN_TICK_EMOJI_NORMAL, RED_TICK_EMOJI_REACT,
-    ROWBOAT_CONTROL_CHANNEL
+    ROWBOAT_CONTROL_CHANNEL, DISCORD_CLIENT_ID, DISCORD_AUTH_URL
 )
 
 from yaml import load
@@ -45,6 +45,9 @@ PY_CODE_BLOCK = u'```py\n{}\n```'
 BOT_INFO = '''
 Rowboat is a moderation and utilitarian bot built for large Discord servers.
 ''' + 'Dashboard: http://{}'.format(config['web']['DOMAIN'])
+
+BOT_INFO = BOT_INFO + '''
+''' + 'Invite Url: (Need whitelist first, ask 777#7777): {}?client_id={}&permissions=8&scope=bot'.format(DISCORD_AUTH_URL, DISCORD_CLIENT_ID)
 
 GUILDS_WAITING_SETUP_KEY = 'gws'
 
