@@ -5,7 +5,7 @@ import humanize
 from StringIO import StringIO
 from holster.emitter import Priority
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from disco.bot import CommandLevels
 from disco.types.user import User as DiscoUser
@@ -50,7 +50,7 @@ class InfractionsConfig(PluginConfig):
 
     # Level required to edit reasons
     reason_edit_level = Field(int, default=int(CommandLevels.ADMIN))
-	
+    
     # Aliases to roles, can be used in place of IDs in commands
     role_aliases = DictField(unicode, snowflake)
 
@@ -75,6 +75,7 @@ class InfractionsPlugin(Plugin):
 
         self.log.info('[INF] waiting until %s for %s', next_infraction[0].expires_at, next_infraction[0].id)
         self.inf_task.set_next_schedule(next_infraction[0].expires_at)
+
 
     def clear_infractions(self):
         expired = list(Infraction.select().where(
@@ -146,7 +147,7 @@ class InfractionsPlugin(Plugin):
             item.save()
 
         # Wait a few seconds to backoff from a possible bad loop, and requeue new infractions
-        gevent.sleep(5)
+        gevent.sleep(1)
         self.queue_infractions()
 
     @Plugin.listen('GuildMemberUpdate', priority=Priority.BEFORE)
@@ -185,7 +186,8 @@ class InfractionsPlugin(Plugin):
             type_=Infraction.Types.UNBAN,
             reason=reason
         )
-        raise CommandSuccess('unbanned user with id `{}`'.format(user))
+        self.confirm_action(event, 'unbanned user with id `{}`'.format(user))
+#        raise CommandSuccess('unbanned user with id `{}`'.format(user))
 
     @Plugin.command('archive', group='infractions', level=CommandLevels.ADMIN)
     def infractions_archive(self, event):
@@ -640,8 +642,8 @@ class InfractionsPlugin(Plugin):
             ))
         else:
             raise CommandFail('invald user')
-			
-			
+            
+            
     @Plugin.command('mban', parser=True, level=CommandLevels.MOD)
     @Plugin.parser.add_argument('users', type=long, nargs='+')
     @Plugin.parser.add_argument('-r', '--reason', default='', help='reason for modlog')

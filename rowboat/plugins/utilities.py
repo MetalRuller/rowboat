@@ -161,16 +161,76 @@ class UtilitiesPlugin(Plugin):
         r.raise_for_status()
         return event.msg.reply('\n'.join(fields), attachments=[('emoji.png', r.content)])
 
+    @Plugin.command('urban', '<term:str...>', global_=True)
+    def urban(self, event, term):
+        r = requests.get('http://api.urbandictionary.com/v0/define', params={
+            'term': term,
+        })
+        r.raise_for_status()
+        data = r.json()
+
+        if not len(data['list']):
+            return event.msg.reply(':warning: no matches')
+
+        event.msg.reply(u'{} - {}'.format(
+            S(data['list'][0]['word']),
+            S(data['list'][0]['definition']),
+        ))
+
+    @Plugin.command('pwnd', '<email:str>', global_=True)
+    def pwnd(self, event, email):
+        r = requests.get('https://haveibeenpwned.com/api/v2/breachedaccount/{}'.format(
+            email
+        ))
+
+        if r.status_code == 404:
+            return event.msg.reply(":white_check_mark: you haven't been pwnd yet, awesome!")
+
+        r.raise_for_status()
+        data = r.json()
+
+        sites = []
+
+        for idx, site in enumerate(data):
+            sites.append(u'{} - {} ({})'.format(
+                site['BreachDate'],
+                site['Title'],
+                site['Domain'],
+            ))
+
+        return event.msg.reply(u":warning: You've been pwnd on {} sites:\n{}".format(
+            len(sites),
+            '\n'.join(sites),
+        ))
+
+    @Plugin.command('geoip', '<ip:str>', global_=True)
+    def geoip(self, event, ip):
+        r = requests.get('http://json.geoiplookup.io/{}'.format(ip))
+        r.raise_for_status()
+        data = r.json()
+
+        event.msg.reply(u'{} - {}, {} ({}) | {}, {}'.format(
+            data['isp'],
+            data['city'],
+            data['region'],
+            data['country_code'],
+            data['latitude'],
+            data['longitude'],
+        ))
+
     @Plugin.command('jumbo', '<emojis:str...>', global_=True)
     def jumbo(self, event, emojis):
         urls = []
+        names = []
 
         for emoji in emojis.split(' ')[:5]:
             if EMOJI_RE.match(emoji):
                 _, eid = EMOJI_RE.findall(emoji)[0]
                 urls.append('https://discordapp.com/api/emojis/{}.png'.format(eid))
+                names.append(_)
             else:
                 urls.append(get_emoji_url(emoji))
+                names.append('emoji')
 
         width, height, images = 0, 0, []
 
@@ -194,7 +254,7 @@ class UtilitiesPlugin(Plugin):
         combined = BytesIO()
         image.save(combined, 'png', quality=55)
         combined.seek(0)
-        return event.msg.reply('', attachments=[('emoji.png', combined)])
+        return event.msg.reply('', attachments=[('{}.png'.format('-'.join(names)), combined)])
 
     @Plugin.command('seen', '<user:user>', global_=True)
     def seen(self, event, user):

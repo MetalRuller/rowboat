@@ -21,6 +21,7 @@ from rowboat.plugins import RowboatPlugin as Plugin, CommandFail, CommandSuccess
 from rowboat.util.images import get_dominant_colors_user
 from rowboat.util.input import parse_duration
 from rowboat.util.gevent import wait_many
+from rowboat.util.timing import Eventual
 from rowboat.redis import rdb
 from rowboat.types import Field, DictField, ListField, snowflake, SlottedModel
 from rowboat.types.plugin import PluginConfig
@@ -338,6 +339,11 @@ class AdminPlugin(Plugin):
             msg = event.msg.reply(':ok_hand: Successfully deleted {} messages.'.format(
                 len(messages)
             ))
+            def f():
+                gevent.sleep(6)
+                msg.delete()
+
+            gevent.spawn(f)
 
     @Plugin.command(
         'add',

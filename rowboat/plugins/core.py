@@ -43,12 +43,10 @@ with open('config.yaml', 'r') as f:
 PY_CODE_BLOCK = u'```py\n{}\n```'
 
 BOT_INFO = '''
-Rowboat is a moderation and utilitarian bot built for large Discord servers.
+Planeboat is a moderation and utilitarian bot built for large Discord servers.
 
-''' + 'Dashboard: http://{}'.format(config['web']['DOMAIN'])
-
-BOT_INFO = BOT_INFO + '''
-''' + 'Invite Url: (For whitelist, ask **777#7777**): {}?client_id={}&permissions=8&scope=bot'.format(DISCORD_AUTH_URL, DISCORD_CLIENT_ID)
+Support/Main Server: https://discord.gg/Ekw5rr6
+'''
 
 GUILDS_WAITING_SETUP_KEY = 'gws'
 
@@ -448,10 +446,10 @@ class CorePlugin(Plugin):
             # Otherwise, default to requiring mentions
             commands = list(self.bot.get_commands_for_message(True, {}, '', event.message))
         else:
-#            if ENV != 'prod':
-#                if not event.message.content.startswith(ENV + '!'):
-#                    return
-#                event.message.content = event.message.content[len(ENV) + 1:]
+            if ENV != 'prod':
+                if not event.message.content.startswith(ENV + '!'):
+                    return
+                event.message.content = event.message.content[len(ENV) + 1:]
 
             # DM's just use the commands (no prefix/mention)
             commands = list(self.bot.get_commands_for_message(False, {}, '', event.message))
@@ -542,7 +540,7 @@ class CorePlugin(Plugin):
         # Make sure this is the owner of the server
         if not global_admin:
             if not event.guild.owner_id == event.author.id:
-                return event.msg.reply(':warning: only the server owner can setup rowboat')
+                return event.msg.reply(':warning: only the server owner can setup planeboat')
 
         # Make sure we have admin perms
         m = event.guild.members.select_one(id=self.state.me.id)
@@ -557,7 +555,7 @@ class CorePlugin(Plugin):
     @Plugin.command('about')
     def command_about(self, event):
         embed = MessageEmbed()
-        embed.set_author(name='Rowboat', icon_url=self.client.state.me.avatar_url, url='https://rowboat.party/')
+        embed.set_author(name='Planeboat', icon_url=self.client.state.me.avatar_url, url='https://rowboat.party/')
         embed.description = BOT_INFO
         embed.add_field(name='Servers', value=str(Guild.select().count()), inline=True)
         embed.add_field(name='Uptime', value=humanize.naturaldelta(datetime.utcnow() - self.startup), inline=True)
@@ -565,7 +563,7 @@ class CorePlugin(Plugin):
 
     @Plugin.command('uptime', level=-1)
     def command_uptime(self, event):
-        event.msg.reply('Rowboat was started {}'.format(
+        event.msg.reply('Planeboat was started {}'.format(
             humanize.naturaldelta(datetime.utcnow() - self.startup)
         ))
 

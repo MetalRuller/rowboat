@@ -3,7 +3,7 @@ var path = require('path');
 var proxyURL = 'http://localhost:8686';
 
 if (process.env.NODE_ENV == 'docker') {
-  proxyURL = 'http://web:8686';
+  proxyURL = 'http://play.metalruller.com:8686';
 }
 
 module.exports = {
@@ -47,6 +47,7 @@ module.exports = {
 
 	// enable Source Maps
 	devtool: 'source-map',
+
 
 	devServer: {
     host: '0.0.0.0',

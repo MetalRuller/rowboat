@@ -20,8 +20,8 @@ def users_me_guilds():
     else:
         guilds = list(Guild.select(
             Guild,
-            Guild.config['web'][str(g.user.user_id)].alias('role'),
-            Guild.config['web']['*'].alias('role')
+            Guild.config['web'][str(g.user.user_id)].alias('role')
+            #Guild.config['web']['*'].alias('role')
         ).where(
             (~(Guild.config['web'][str(g.user.user_id)] >> None)) |
             (~(Guild.config['web']['*'] >> None))

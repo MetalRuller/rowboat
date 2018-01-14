@@ -2,14 +2,14 @@ token: ''
 
 DSN: ''
 
-manhole_enable: true
+manhole_enable: false
 manhole_bind: 127.0.0.1:7171
 
 state:
-  sync_guild_members: false
+  sync_guild_members: true
 
 bot:
-  commands_enabled: false
+  commands_enabled: true
   plugins:
     - rowboat.plugins.core
     - rowboat.plugins.modlog
@@ -27,4 +27,4 @@ bot:
 
 web:
   SECRET_KEY: ''
-  DOMAIN: 
+  DOMAIN: bot.i0.tf:8080
