@@ -67,6 +67,11 @@ class CorePlugin(Plugin):
         if ENV != 'prod':
             self.spawn(self.wait_for_plugin_changes)
 
+        self.global_config = None
+        
+        with open('config.yaml', 'r') as f:
+            self.global_config = load(f)
+
         self._wait_for_actions_greenlet = self.spawn(self.wait_for_actions)
 
     def spawn_wait_for_actions(self, *args, **kwargs):
