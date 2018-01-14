@@ -30,8 +30,7 @@ from rowboat.models.message import Command
 from rowboat.models.notification import Notification
 from rowboat.plugins.modlog import Actions
 from rowboat.constants import (
-    GREEN_TICK_EMOJI, RED_TICK_EMOJI, ROWBOAT_GUILD_ID, ROWBOAT_USER_ROLE_ID, GREEN_TICK_EMOJI_NORMAL, RED_TICK_EMOJI_REACT,
-    ROWBOAT_CONTROL_CHANNEL, DISCORD_CLIENT_ID, DISCORD_AUTH_URL
+    GREEN_TICK_EMOJI, RED_TICK_EMOJI, ROWBOAT_GUILD_ID, ROWBOAT_USER_ROLE_ID, GREEN_TICK_EMOJI_NORMAL, RED_TICK_EMOJI_REACT
 )
 
 from yaml import load
@@ -312,15 +311,12 @@ class CorePlugin(Plugin):
         ))
         embed.timestamp = datetime.utcnow().isoformat()
         embed.color = 0x779ecb
-        try:
-            yield embed
-            self.bot.client.api.channels_messages_create(
-                ROWBOAT_CONTROL_CHANNEL,
-                embed=embed
-            )
-        except:
-            self.log.exception('Failed to send control message:')
-            return
+        yield embed
+        self.bot.client.api.channels_messages_create(
+        self.global_config['control_channels']['PRODUCTION'] if ENV == 'prod' else self.global_config['control_channels']['DEVELOPMENT'],
+            '',
+            embed=embed
+        )
 
     @Plugin.listen('Resumed')
     def on_resumed(self, event):

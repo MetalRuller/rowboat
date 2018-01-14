@@ -6,12 +6,6 @@ from rowboat.util.decos import authed
 
 auth = Blueprint('auth', __name__, url_prefix='/api/auth')
 
-DISCORD_CLIENT_ID = 397509208557486081
-DISCORD_API_BASE_URL = 'https://discordapp.com/api/v7'
-DISCORD_CLIENT_SECRET = ''
-DISCORD_TOKEN_URL = 'https://discordapp.com/api/v7/oauth2/token'
-DISCORD_AUTH_URL = 'https://discordapp.com/api/v7/oauth2/authorize'
-DISCORD_REDIRECT_URI = 'http://bot.i0.tf:8080/api/auth/discord/callback'
 
 def token_updater(token):
     pass
@@ -19,16 +13,16 @@ def token_updater(token):
 
 def make_discord_session(token=None, state=None, scope=None):
     return OAuth2Session(
-        client_id=DISCORD_CLIENT_ID,
+        client_id=current_app.config['discord']['CLIENT_ID'],
         token=token,
         state=state,
         scope=scope,
-        redirect_uri=DISCORD_REDIRECT_URI,
+        redirect_uri=current_app.config['discord']['REDIRECT_URI'],
         auto_refresh_kwargs={
-            'client_id': DISCORD_CLIENT_ID,
-            'client_secret': DISCORD_CLIENT_SECRET,
+            'client_id': current_app.config['discord']['CLIENT_ID'],
+            'client_secret': current_app.config['discord']['CLIENT_SECRET'],
         },
-        auto_refresh_url=DISCORD_TOKEN_URL,
+        auto_refresh_url=current_app.config['discord']['TOKEN_URL'],
         token_updater=token_updater)
 
 
@@ -42,7 +36,7 @@ def auth_logout():
 @auth.route('/discord')
 def auth_discord():
     discord = make_discord_session(scope=('identify', ))
-    auth_url, state = discord.authorization_url(DISCORD_AUTH_URL)
+    auth_url, state = discord.authorization_url(current_app.config['discord']['AUTH_URL'])
     session['state'] = state
     return redirect(auth_url)
 
@@ -57,15 +51,15 @@ def auth_discord_callback():
 
     discord = make_discord_session(state=session['state'])
     token = discord.fetch_token(
-        DISCORD_TOKEN_URL,
-        client_id=DISCORD_CLIENT_ID,
-        client_secret=DISCORD_CLIENT_SECRET,
+        current_app.config['discord']['TOKEN_URL'],
+        client_id=current_app.config['discord']['CLIENT_ID'],
+        client_secret=current_app.config['discord']['CLIENT_SECRET'],
         authorization_response=request.url)
 
 
     discord = make_discord_session(token=token)
 	
-    data = discord.get(DISCORD_API_BASE_URL + '/users/@me').json()
+    data = discord.get(current_app.config['discord']['API_BASE_URL'] + '/users/@me').json()
 	
     user = User.with_id(data['id'])
     #user = data

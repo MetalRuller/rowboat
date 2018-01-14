@@ -53,6 +53,7 @@ ORDER BY 3 {}
 LIMIT 30
 """
 
+B1NZY_USER_ID = 80351110224678912
 
 class PersistConfig(SlottedModel):
     roles = Field(bool, default=False)
@@ -130,6 +131,7 @@ class AdminPlugin(Plugin):
             event.guild.id,
             member=member,
         )
+
 
     @Plugin.listen('GuildMemberRemove', priority=Priority.BEFORE)
     def on_guild_member_remove(self, event):

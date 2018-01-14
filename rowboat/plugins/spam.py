@@ -11,7 +11,7 @@ from holster.emitter import Priority
 from rowboat.plugins import RowboatPlugin as Plugin
 from rowboat.redis import rdb
 from rowboat.plugins.modlog import Actions
-from rowboat.plugins.censor import URL_RE
+from rowboat.constants import URL_RE
 from rowboat.util.leakybucket import LeakyBucket
 from rowboat.util.stats import timed
 from rowboat.types.plugin import PluginConfig

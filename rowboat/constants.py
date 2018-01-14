@@ -30,14 +30,7 @@ USER_MENTION_RE = re.compile('<@!?([0-9]+)>')
 # IDs and such
 ROWBOAT_GUILD_ID = 387817296527228928
 ROWBOAT_USER_ROLE_ID = 392854838158819329
-ROWBOAT_CONTROL_CHANNEL = 392854801354063873
 
-DISCORD_CLIENT_ID = 397509208557486081
-DISCORD_API_BASE_URL = 'https://discordapp.com/api/v6'
-DISCORD_CLIENT_SECRET = ''
-DISCORD_TOKEN_URL = 'https://discordapp.com/api/oauth2/token'
-DISCORD_AUTH_URL = 'https://discordapp.com/api/oauth2/authorize'
-DISCORD_REDIRECT_URI = 'http://bot.i0.tf:8080/api/auth/discord/callback'
 
 
 
