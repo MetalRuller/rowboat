@@ -336,11 +336,12 @@ class AdminPlugin(Plugin):
         self.cleans[event.channel.id] = gevent.spawn(run_clean)
         self.cleans[event.channel.id].join()
         del self.cleans[event.channel.id]
-        event.msg.delete()
+
         if len(messages) > 1:
             msg = event.msg.reply(':ok_hand: Successfully deleted {} messages.'.format(
                 len(messages)
             ))
+            event.msg.delete()
             def f():
                 gevent.sleep(6)
                 msg.delete()

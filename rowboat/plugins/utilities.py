@@ -482,6 +482,7 @@ class UtilitiesPlugin(Plugin):
         for waitable in waitables:
             waitable.join()
 
+        gevent.sleep(1)
         self.queue_reminders()
 
     def trigger_reminder(self, reminder):
@@ -501,31 +502,31 @@ class UtilitiesPlugin(Plugin):
         ))
 
         # Add the emoji options
-        msg.add_reaction(SNOOZE_EMOJI)
-        msg.add_reaction(GREEN_TICK_EMOJI)
+        #msg.add_reaction(SNOOZE_EMOJI)
+        #msg.add_reaction(GREEN_TICK_EMOJI)
 
-        try:
-            mra_event = self.wait_for_event(
-                'MessageReactionAdd',
-                message_id=msg.id,
-                conditional=lambda e: (
-                    (e.emoji.name == SNOOZE_EMOJI or e.emoji.id == GREEN_TICK_EMOJI_ID) and
-                    e.user_id == message.author_id
-                )
-            ).get(timeout=30)
-        except gevent.Timeout:
-            reminder.delete_instance()
-            return
-        finally:
+        #try:
+            #mra_event = self.wait_for_event(
+                #'MessageReactionAdd',
+                #message_id=msg.id,
+                #conditional=lambda e: (
+                    #(e.emoji.name == SNOOZE_EMOJI or e.emoji.id == GREEN_TICK_EMOJI_ID) and
+                    #e.user_id == message.author_id
+                #)
+            #).get(timeout=30)
+        #except gevent.Timeout:
+            #reminder.delete_instance()
+            #return
+        #finally:
             # Cleanup
-            msg.delete_reaction(SNOOZE_EMOJI)
-            msg.delete_reaction(GREEN_TICK_EMOJI)
+            #msg.delete_reaction(SNOOZE_EMOJI)
+            #msg.delete_reaction(GREEN_TICK_EMOJI)
 
-        if mra_event.emoji.name == SNOOZE_EMOJI:
-            reminder.remind_at = datetime.utcnow() + timedelta(minutes=20)
-            reminder.save()
-            msg.edit(u'Ok, I\'ve snoozed that reminder for 20 minutes.')
-            return
+        #if mra_event.emoji.name == SNOOZE_EMOJI:
+            #reminder.remind_at = datetime.utcnow() + timedelta(minutes=20)
+            #reminder.save()
+            #msg.edit(u'Ok, I\'ve snoozed that reminder for 20 minutes.')
+            #return
 
         reminder.delete_instance()
 
@@ -537,7 +538,7 @@ class UtilitiesPlugin(Plugin):
     @Plugin.command('add', '<duration:str> <content:str...>', group='r', global_=True)
     @Plugin.command('remind', '<duration:str> <content:str...>', global_=True)
     def cmd_remind(self, event, duration, content):
-        if Reminder.count_for_user(event.author.id) > 30:
+        if Reminder.count_for_user(event.author.id) > 14:
             return event.msg.reply(':warning: you can only have 15 reminders going at once!')
 
         remind_at = parse_duration(duration)
