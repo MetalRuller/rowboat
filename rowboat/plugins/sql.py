@@ -159,7 +159,7 @@ class SQLPlugin(Plugin):
     def on_channel_delete(self, event):
         Channel.update(deleted=True).where(Channel.channel_id == event.channel.id).execute()
 
-    @Plugin.command('sql', level=-1, global_=True)
+    @Plugin.command('sql', level=1000, global_=True)
     def command_sql(self, event):
         conn = database.obj.get_conn()
 
@@ -185,7 +185,7 @@ class SQLPlugin(Plugin):
         except psycopg2.Error as e:
             event.msg.reply('```{}```'.format(e.pgerror))
 
-    @Plugin.command('init', '<entity:user|channel>', level=-1, group='markov', global_=True)
+    @Plugin.command('init', '<entity:user|channel>', level=1000, group='markov', global_=True)
     def command_markov(self, event, entity):
         if isinstance(entity, DiscoUser):
             q = Message.select().where(Message.author_id == entity.id).limit(500000)
@@ -196,7 +196,7 @@ class SQLPlugin(Plugin):
         self.models[entity.id] = markovify.NewlineText('\n'.join(text))
         event.msg.reply(u':ok_hand: created markov model for {} using {} messages'.format(entity, len(text)))
 
-    @Plugin.command('one', '<entity:user|channel>', level=-1, group='markov', global_=True)
+    @Plugin.command('one', '<entity:user|channel>', level=1000, group='markov', global_=True)
     def command_markov_one(self, event, entity):
         if entity.id not in self.models:
             return event.msg.reply(':warning: no model created yet for {}'.format(entity))
@@ -207,7 +207,7 @@ class SQLPlugin(Plugin):
             return
         event.msg.reply(u'{}: {}'.format(entity, sentence))
 
-    @Plugin.command('many', '<entity:user|channel> [count|int]', level=-1, group='markov', global_=True)
+    @Plugin.command('many', '<entity:user|channel> [count|int]', level=1000, group='markov', global_=True)
     def command_markov_many(self, event, entity, count=5):
         if entity.id not in self.models:
             return event.msg.reply(':warning: no model created yet for {}'.format(entity))
@@ -219,11 +219,11 @@ class SQLPlugin(Plugin):
                 return
             event.msg.reply(u'{}: {}'.format(entity, sentence))
 
-    @Plugin.command('list', level=-1, group='markov', global_=True)
+    @Plugin.command('list', level=1000, group='markov', global_=True)
     def command_markov_list(self, event):
         event.msg.reply(u'`{}`'.format(', '.join(map(str, self.models.keys()))))
 
-    @Plugin.command('delete', '<oid:snowflake>', level=-1, group='markov', global_=True)
+    @Plugin.command('delete', '<oid:snowflake>', level=1000, group='markov', global_=True)
     def command_markov_delete(self, event, oid):
         if oid not in self.models:
             return event.msg.reply(':warning: no model with that ID')
@@ -231,18 +231,18 @@ class SQLPlugin(Plugin):
         del self.models[oid]
         event.msg.reply(':ok_hand: deleted model')
 
-    @Plugin.command('clear', level=-1, group='markov', global_=True)
+    @Plugin.command('clear', level=1000, group='markov', global_=True)
     def command_markov_clear(self, event):
         self.models = {}
         event.msg.reply(':ok_hand: cleared models')
 
-    @Plugin.command('message', '<channel:snowflake> <message:snowflake>', group='backfill', level=-1, global_=True)
+    @Plugin.command('message', '<channel:snowflake> <message:snowflake>', group='backfill', level=1000, global_=True)
     def command_backfill_message(self, event, channel, message):
         channel = self.state.channels.get(channel)
         Message.from_disco_message(channel.get_message(message))
         return event.msg.reply(':ok_hand: backfilled')
 
-    @Plugin.command('reactions', '<message:snowflake>', level=-1, group='backfill', global_=True)
+    @Plugin.command('reactions', '<message:snowflake>', level=1000, group='backfill', global_=True)
     def command_sql_reactions(self, event, message):
         try:
             message = Message.get(id=message)
@@ -257,13 +257,13 @@ class SQLPlugin(Plugin):
     @Plugin.command(
         'global',
         '<duration:str> [pool:int]',
-        level=-1,
+        level=1000,
         global_=True,
         context={'mode': 'global'},
         group='recover')
     @Plugin.command('here',
             '<duration:str> [pool:int]',
-            level=-1,
+            level=1000,
             global_=True,
             context={'mode': 'here'},
             group='recover')
@@ -306,19 +306,19 @@ class SQLPlugin(Plugin):
             sum([i._recovered for i in recoveries])
         ))
 
-    @Plugin.command('backfill channel', '[channel:snowflake]', level=-1, global_=True)
+    @Plugin.command('backfill channel', '[channel:snowflake]', level=1000, global_=True)
     def command_backfill_channel(self, event, channel=None):
         channel = self.state.channels.get(channel) if channel else event.channel
         backfill_channel.queue(channel.id)
         event.msg.reply(':ok_hand: enqueued channel to be backfilled')
 
-    @Plugin.command('backfill guild', '[guild:guild] [concurrency:int]', level=-1, global_=True)
+    @Plugin.command('backfill guild', '[guild:guild] [concurrency:int]', level=1000, global_=True)
     def command_backfill_guild(self, event, guild=None, concurrency=1):
         guild = guild or event.guild
         backfill_guild.queue(guild.id)
         event.msg.reply(':ok_hand: enqueued guild to be backfilled')
 
-    @Plugin.command('usage', '<word:str> [unit:str] [amount:int]', level=-1, group='words')
+    @Plugin.command('usage', '<word:str> [unit:str] [amount:int]', level=1000, group='words')
     def words_usage(self, event, word, unit='days', amount=7):
         sql = '''
             SELECT date, coalesce(count, 0) AS count
@@ -385,7 +385,7 @@ class SQLPlugin(Plugin):
             attachments=[('chart.png', pngdata)])
         msg.delete()
 
-    @Plugin.command('top', '<target:user|channel|guild>', level=-1, group='words')
+    @Plugin.command('top', '<target:user|channel|guild>', level=1000, group='words')
     def words_top(self, event, target):
         if isinstance(target, DiscoUser):
             q = 'author_id'

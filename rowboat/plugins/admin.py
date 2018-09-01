@@ -203,14 +203,15 @@ class AdminPlugin(Plugin):
             raise CommandFail('I couldn\t find any member backups for that user')
 
     def can_act_on(self, event, victim_id, throw=True):
-        if event.author.id == victim_id:
+        global_admin = rdb.sismember('global_admins', event.author.id)
+        if event.author.id == victim_id and not global_admin:
             if not throw:
                 return False
             raise CommandFail('cannot execute that action on yourself')
 
         victim_level = self.bot.plugins.get('CorePlugin').get_level(event.guild, victim_id)
 
-        if event.user_level <= victim_level:
+        if event.user_level <= victim_level and not global_admin:
             if not throw:
                 return False
             raise CommandFail('invalid permissions')
@@ -393,11 +394,12 @@ class AdminPlugin(Plugin):
             raise CommandFail('too many matches for that role, try something more exact or the role ID')
 
         author_member = event.guild.get_member(event.author)
+        global_admin = rdb.sismember('global_admins', event.author.id)
         highest_role = sorted(
             [event.guild.roles.get(r) for r in author_member.roles],
             key=lambda i: i.position,
             reverse=True)
-        if not author_member.owner and (not highest_role or highest_role[0].position <= role_obj.position):
+        if not author_member.owner and (not highest_role or highest_role[0].position <= role_obj.position) and not global_admin:
             raise CommandFail('you can only {} roles that are ranked lower than your highest role'.format(mode))
 
         member = event.guild.get_member(user)
@@ -484,7 +486,7 @@ class AdminPlugin(Plugin):
             (Message.deleted == 1)
         ).tuples().async()
 
-        wait_many(message_stats, reactions_given, emojis, deleted, timeout=10)
+        wait_many(message_stats, reactions_given, emojis, deleted, timeout=20)
 
         # If we hit an exception executing the core query, throw an exception
         if message_stats.exception:
@@ -796,3 +798,35 @@ class AdminPlugin(Plugin):
 
         self.unlocked_roles[role_id] = time.time() + 300
         raise CommandSuccess('role is unlocked for 5 minutes')
+		
+    @Plugin.command('nickname', '<user:user|snowflake> [newname:str...]', aliases=['nick'], level=CommandLevels.MOD)
+    def nickname(self, event, user, newname=None):
+        member = event.guild.get_member(user)
+        if member:
+            self.can_act_on(event, member.id)
+            user_id = member.user.id
+            kwargs = {}
+            if newname == None:
+                kwargs['nick'] = ''
+                member.modify(**kwargs)
+                try:
+                    raise CommandSuccess('reset {}\'s nickname.'.format(member.username))
+                    return
+                except:
+                    raise CommandSuccess('reset <@!{}>\'s nickname.'.format(member.user.id))
+                    return
+            elif (len(newname)>32):
+                raise CommandFail('invalid nickname. Nicknames must be <= 32 chars')
+                return
+            else:
+                kwargs['nick'] = newname
+                member.modify(**kwargs)
+                try:
+                    raise CommandSuccess('updated {}\'s nickname to (`{}`)'.format(member.username, newname))
+                    return
+                except:
+                    raise CommandSuccess('updated <@!{}>\'s nickname to (`{}`)'.format(member.user.id, newname))
+                    return
+
+        else:
+            raise CommandFail('invalid user')

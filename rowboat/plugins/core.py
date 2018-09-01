@@ -464,10 +464,14 @@ class CorePlugin(Plugin):
         # Grab whether this user is a global admin
         # TODO: cache this
         global_admin = rdb.sismember('global_admins', event.author.id)
+        #global_admin = False
 
         # Iterate over commands and find a match
         for command, match in commands:
             if command.level == -1 and not global_admin:
+                continue
+
+            if command.level > 999 and not global_admin:
                 continue
 
             level = command.level
@@ -484,8 +488,13 @@ class CorePlugin(Plugin):
 
                 level = overrides.get('level', level)
 
+
+
             if not global_admin and event.user_level < level:
                 continue
+
+
+
 
             with timed('rowboat.command.duration', tags={'plugin': command.plugin.name, 'command': command.name}):
                 try:
@@ -560,15 +569,18 @@ class CorePlugin(Plugin):
         embed.description = BOT_INFO
         embed.add_field(name='Servers', value=str(Guild.select().count()), inline=True)
         embed.add_field(name='Uptime', value=humanize.naturaldelta(datetime.utcnow() - self.startup), inline=True)
+        global_admin = rdb.sismember('global_admins', event.author.id)
+        if global_admin:
+            embed.add_field(name='Admin', value='You are a rowboat global admin!')
         event.msg.reply(embed=embed)
 
-    @Plugin.command('uptime', level=-1)
+    @Plugin.command('uptime', level=1000)
     def command_uptime(self, event):
         event.msg.reply('Planeboat was started {}'.format(
             humanize.naturaldelta(datetime.utcnow() - self.startup)
         ))
 
-    @Plugin.command('source', '<command>', level=-1)
+    @Plugin.command('source', '<command>', level=1000)
     def command_source(self, event, command=None):
         for cmd in self.bot.commands:
             if command.lower() in cmd.triggers:
@@ -586,7 +598,7 @@ class CorePlugin(Plugin):
             firstlineno + len(lines)
         ))
 
-    @Plugin.command('eval', level=-1)
+    @Plugin.command('eval', level=1000)
     def command_eval(self, event):
         ctx = {
             'bot': self.bot,
@@ -628,7 +640,7 @@ class CorePlugin(Plugin):
         else:
             event.msg.reply(PY_CODE_BLOCK.format(result))
 
-    @Plugin.command('sync-bans', group='control',level=-1)
+    @Plugin.command('sync-bans', group='control',level=1000)
     def control_sync_bans(self, event):
         guilds = list(Guild.select().where(
             Guild.enabled == 1
@@ -641,12 +653,12 @@ class CorePlugin(Plugin):
 
         msg.edit('synced {} guilds'.format(len(guilds)))
 
-    @Plugin.command('reconnect', group='control',level=-1)
+    @Plugin.command('reconnect', group='control',level=1000)
     def control_reconnect(self, event):
         event.msg.reply('Ok, closing connection')
         self.client.gw.ws.close()
 
-    @Plugin.command('invite', '<guild:snowflake>', group='guilds', level=-1)
+    @Plugin.command('invite', '<guild:snowflake>', group='guilds', level=1000)
     def guild_join(self, event, guild):
         guild = self.state.guilds.get(guild)
         if not guild:
@@ -673,18 +685,18 @@ class CorePlugin(Plugin):
             invite.code,
         ))
 
-    @Plugin.command('wh', '<guild:snowflake>',group='guilds', level=-1)
+    @Plugin.command('wh', '<guild:snowflake>',group='guilds', level=1000)
     def guild_whitelist(self, event, guild):
         rdb.sadd(GUILDS_WAITING_SETUP_KEY, str(guild))
         event.msg.reply('Ok, guild %s is now in the whitelist' % guild)
 
-    @Plugin.command('unwh', '<guild:snowflake>',group='guilds', level=-1)
+    @Plugin.command('unwh', '<guild:snowflake>',group='guilds', level=1000)
     def guild_unwhitelist(self, event, guild):
         rdb.srem(GUILDS_WAITING_SETUP_KEY, str(guild))
         event.msg.reply('Ok, I\'ve made sure guild %s is no longer in the whitelist' % guild)
         Guild.update(whitelist=[]).where(str(Guild.guild_id) == str(guild)).execute()
 
-    @Plugin.command('disable', '<plugin:str>', group='plugins', level=-1)
+    @Plugin.command('disable', '<plugin:str>', group='plugins', level=1000)
     def plugin_disable(self, event, plugin):
         plugin = self.bot.plugins.get(plugin)
         if not plugin:

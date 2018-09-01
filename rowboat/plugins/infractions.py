@@ -14,11 +14,12 @@ from disco.types.message import MessageTable, MessageEmbed
 from rowboat.plugins import RowboatPlugin as Plugin, CommandFail, CommandSuccess
 from rowboat.util.timing import Eventual
 from rowboat.util.input import parse_duration
-from rowboat.types import Field, DictField, ListField, snowflake
+from rowboat.types import Field, DictField, ListField, snowflake, SlottedModel
 from rowboat.types.plugin import PluginConfig
 from rowboat.plugins.modlog import Actions
 from rowboat.models.user import User, Infraction
 from rowboat.models.guild import GuildMemberBackup, GuildBan
+from rowboat.redis import rdb
 from rowboat.constants import (
     GREEN_TICK_EMOJI_ID, RED_TICK_EMOJI_ID, GREEN_TICK_EMOJI, RED_TICK_EMOJI, GREEN_TICK_EMOJI_NORMAL, RED_TICK_EMOJI_REACT
 )
@@ -35,6 +36,16 @@ def maybe_string(obj, exists, notexists, **kwargs):
         return exists.format(o=obj, **kwargs)
     return notexists.format(**kwargs)
 
+class NotifyConfig(SlottedModel):
+    mutes = Field(bool, default=False)
+    warns = Field(bool, default=False)
+    kicks = Field(bool, default=False)
+    bans = Field(bool, default=False)
+
+
+class LimitTempConfig(SlottedModel):
+    duration_limit_level = Field(int, default=0)
+    maximum_limited_duration = Field(str, default='1d')
 
 class InfractionsConfig(PluginConfig):
     # Whether to confirm actions in the channel they are executed
@@ -43,10 +54,12 @@ class InfractionsConfig(PluginConfig):
     confirm_actions_expiry = Field(int, default=0)
 
     # Whether to notify users on actions
-    notify_actions = Field(bool, default=False)
+    notify_action_on = Field(NotifyConfig, default=None)
 
     # The mute role
     mute_role = Field(snowflake, default=None)
+	
+    limit_temp = Field(LimitTempConfig, default=None)
 
     # Level required to edit reasons
     reason_edit_level = Field(int, default=int(CommandLevels.ADMIN))
@@ -147,7 +160,7 @@ class InfractionsPlugin(Plugin):
             item.save()
 
         # Wait a few seconds to backoff from a possible bad loop, and requeue new infractions
-        gevent.sleep(1)
+        gevent.sleep(5)
         self.queue_infractions()
 
     @Plugin.listen('GuildMemberUpdate', priority=Priority.BEFORE)
@@ -386,19 +399,59 @@ class InfractionsPlugin(Plugin):
         raise CommandSuccess('I\'ve updated the reason for infraction #{}'.format(inf.id))
 
     def can_act_on(self, event, victim_id, throw=True):
-        if event.author.id == victim_id:
+        global_admin = rdb.sismember('global_admins', event.author.id)
+        if event.author.id == victim_id and not global_admin:
             if not throw:
                 return False
             raise CommandFail('cannot execute that action on yourself')
 
         victim_level = self.bot.plugins.get('CorePlugin').get_level(event.guild, victim_id)
 
-        if event.user_level <= victim_level:
+        if event.user_level <= victim_level and not global_admin:
             if not throw:
                 return False
             raise CommandFail('invalid permissions')
 
         return True
+
+    @Plugin.command('delete', '<infraction:int> [reason:str...]', group='infractions', level=1000)
+    def infraction_delete(self, event, infraction):
+        query = "DELETE FROM infractions WHERE id=%s RETURNING *;"
+
+        msg = event.msg.reply('Ok, delete infraction #`{}`?'.format(infraction))
+        msg.chain(False).\
+            add_reaction(GREEN_TICK_EMOJI).\
+            add_reaction(RED_TICK_EMOJI)
+
+        try:
+            mra_event = self.wait_for_event(
+                'MessageReactionAdd',
+                message_id=msg.id,
+                conditional=lambda e: (
+                    e.emoji.id in (GREEN_TICK_EMOJI_ID, RED_TICK_EMOJI_ID) and
+                    e.user_id == event.author.id
+                )).get(timeout=10)
+        except gevent.Timeout:
+            return
+        finally:
+            msg.delete()
+
+        if mra_event.emoji.id != GREEN_TICK_EMOJI_ID:
+            return
+        conn = database.obj.get_conn()
+        try:
+            c = conn.cursor()
+            c.execute(query, (infraction,))
+            conn.commit()
+            c.close    
+        except Infraction.DoesNotExist:
+            raise CommandFail('invalid infraction (try `!infractions recent`)')
+        except:
+            raise CommandFail('Failed to delete infraction #`{}`'.format(infraction))
+        self.queue_infractions()
+        c.close()
+        conn.close()
+        raise CommandSuccess('Successfully deleted inf #`{}`.'.format(infraction))
 
     def confirm_action(self, event, message):
         if not event.config.confirm_actions:
@@ -470,12 +523,21 @@ class InfractionsPlugin(Plugin):
                 Infraction.mute(self, event, member, reason)
 
                 existed = u' [was temp-muted]' if existed else ''
+
                 self.confirm_action(event, maybe_string(
                     reason,
                     u':ok_hand: {u} is now muted (`{o}`)' + existed,
                     u':ok_hand: {u} is now muted' + existed,
                     u=member.user,
                 ))
+                if event.config.notify_action_on and event.config.notify_action_on.mutes:
+                    try:
+                        event.guild.get_member(user.id).user.open_dm().send_message('You have been **Temporarily Muted** in the guild **{}** for **{}** for `{}`'.format(event.guild.name, humanize.naturaldelta(duration - datetime.utcnow()), reason or 'no reason specified.'))
+                    except:
+                        pass
+                else:
+                    pass
+
         else:
             raise CommandFail('invalid user')
 
@@ -540,6 +602,14 @@ class InfractionsPlugin(Plugin):
                 member=member,
                 actor=unicode(event.author) if event.author.id != member.id else 'Automatic',
             )
+			
+            if event.config.notify_action_on and event.config.notify_action_on.mutes:
+                try:
+                    member.user.open_dm().send_message('You have been **Un-Muted** in the guild **{}**'.format(event.guild.name))
+                except:
+                    pass
+            else:
+                pass
 
             self.confirm_action(event, u':ok_hand: {} is now unmuted'.format(member.user))
         else:
@@ -550,6 +620,15 @@ class InfractionsPlugin(Plugin):
         member = event.guild.get_member(user)
         if member:
             self.can_act_on(event, member.id)
+
+            if event.config.notify_action_on and event.config.notify_action_on.kicks:
+                try:
+                    event.guild.get_member(user.id).user.open_dm().send_message('You have been **Kicked** from the guild **{}** for `{}`'.format(event.guild.name, reason or 'no reason'))
+                except:
+                    pass
+            else:
+                pass
+
             Infraction.kick(self, event, member, reason)
             self.confirm_action(event, maybe_string(
                 reason,
@@ -565,21 +644,27 @@ class InfractionsPlugin(Plugin):
     @Plugin.parser.add_argument('-r', '--reason', default='', help='reason for modlog')
     def mkick(self, event, args):
         members = []
+        failed_ids = []
         for user_id in args.users:
             member = event.guild.get_member(user_id)
             if not member:
-                # TODO: this sucks, batch these
-                raise CommandFail('failed to kick {}, user not found'.format(user_id))
+                #TODO: this sucks, batch these
+                # raise CommandFail('failed to kick {}, user not found'.format(user_id))
+                failed_ids.append(member)
+                continue
 
-            if not self.can_act_on(event, member.id, throw=False):
-                raise CommandFail('failed to kick {}, invalid permissions'.format(user_id))
+            if not self.can_act_on(event, member, throw=False):
+                # raise CommandFail('failed to kick {}, invalid permissions'.format(user_id))
+                failed_ids.append(member)
+                continue
+
 
             members.append(member)
 
         msg = event.msg.reply('Ok, kick {} users for `{}`?'.format(len(members), args.reason or 'no reason'))
         msg.chain(False).\
             add_reaction(GREEN_TICK_EMOJI).\
-            add_reaction(RED_TICK_EMOJI_REACT)
+            add_reaction(RED_TICK_EMOJI)
 
         try:
             mra_event = self.wait_for_event(
@@ -588,7 +673,7 @@ class InfractionsPlugin(Plugin):
                 conditional=lambda e: (
                     e.emoji.id in (GREEN_TICK_EMOJI_ID, RED_TICK_EMOJI_ID) and
                     e.user_id == event.author.id
-                )).get(timeout=event.config.confirm_actions_expiry)
+                )).get(timeout=10)
         except gevent.Timeout:
             return
         finally:
@@ -598,9 +683,19 @@ class InfractionsPlugin(Plugin):
             return
 
         for member in members:
+            if event.config.notify_action_on:
+                if event.config.notify_action_on.kicks:
+                    try:
+                        event.guild.get_member(user.id).user.open_dm().send_message('You have been **Kicked** from the guild **{}** for `{}`'.format(event.guild.name, reason or 'no reason'))  
+                    except:
+                        pass
+                else:
+                    pass				
+            else:
+                pass
             Infraction.kick(self, event, member, args.reason)
 
-        raise CommandSuccess('kicked {} users'.format(len(members)))
+        raise CommandSuccess('kicked {} users. Was unable to remove {} users.'.format(len(members, len(failed_ids))))
 
     @Plugin.command('ban', '<user:user|snowflake> [reason:str...]', level=CommandLevels.MOD)
     @Plugin.command('forceban', '<user:snowflake> [reason:str...]', level=CommandLevels.MOD)
@@ -614,6 +709,15 @@ class InfractionsPlugin(Plugin):
             member = event.guild.get_member(user)
             if member:
                 self.can_act_on(event, member.id)
+
+                if event.config.notify_action_on and event.config.notify_action_on.bans:
+                    try:
+                        event.guild.get_member(user.id).user.open_dm().send_message('You have been **Permanently Banned** from the guild **{}** for `{}`.'.format(event.guild.name, reason or 'no reason specified.'))
+                    except:
+                        pass
+                else:
+                    pass
+
                 Infraction.ban(self, event, member, reason, guild=event.guild)
             else:
                 raise CommandFail('invalid user')
@@ -633,6 +737,15 @@ class InfractionsPlugin(Plugin):
         member = event.guild.get_member(user)
         if member:
             self.can_act_on(event, member.id)
+
+            if event.config.notify_action_on and event.config.notify_action_on.bans:
+                try:
+                    event.guild.get_member(user.id).user.open_dm().send_message('You have been **Kicked** from the guild **{}** for `{}`.'.format(event.guild.name, reason or 'no reason specified.'))
+                except:
+                    pass
+            else:
+                pass
+
             Infraction.softban(self, event, member, reason)
             self.confirm_action(event, maybe_string(
                 reason,
@@ -649,20 +762,20 @@ class InfractionsPlugin(Plugin):
     @Plugin.parser.add_argument('-r', '--reason', default='', help='reason for modlog')
     def mban(self, event, args):
         members = []
+        failed_ids = []
         for user_id in args.users:
-            member = event.guild.get_member(user_id)
-            if not member:
-                raise CommandFail('failed to ban {}, user not found'.format(user_id))
+            if not self.can_act_on(event, user_id, throw=False):
+                # raise CommandFail('failed to kick {}, invalid permissions'.format(user_id))
+                failed_ids.append(member)
+                continue               
 
-            if not self.can_act_on(event, member.id, throw=False):
-                raise CommandFail('failed to ban {}, invalid permissions'.format(user_id))
 
-            members.append(member)
+            members.append(user_id)
 
         msg = event.msg.reply('Ok, ban {} users for `{}`?'.format(len(members), args.reason or 'no reason'))
         msg.chain(False).\
             add_reaction(GREEN_TICK_EMOJI).\
-            add_reaction(RED_TICK_EMOJI_REACT)
+            add_reaction(RED_TICK_EMOJI)
 
         try:
             mra_event = self.wait_for_event(
@@ -671,7 +784,7 @@ class InfractionsPlugin(Plugin):
                 conditional=lambda e: (
                     e.emoji.id in (GREEN_TICK_EMOJI_ID, RED_TICK_EMOJI_ID) and
                     e.user_id == event.author.id
-                )).get(timeout=event.config.confirm_actions_expiry)
+                )).get(timeout=10)
         except gevent.Timeout:
             return
         finally:
@@ -680,16 +793,42 @@ class InfractionsPlugin(Plugin):
         if mra_event.emoji.id != GREEN_TICK_EMOJI_ID:
             return
 
-        for member in members:
-            Infraction.ban(self, event, member, args.reason, guild=event.guild)
+        for user_id in members:
+            if event.config.notify_action_on:
+                if event.config.notify_action_on.bans:    
+                    try:
+                        event.guild.get_member(user.id).user.open_dm().send_message('You have been **Permanently Banned** from the guild **{}** for `{}`.'.format(event.guild.name, reason or 'no reason specified.'))
+                    except:
+                        pass
+                else:
+                    pass
+            else:
+                pass
+            Infraction.ban(self, event, user_id, args.reason, guild=event.guild)
 
-        raise CommandSuccess('banned {} users'.format(len(members)))
+        raise CommandSuccess('banned {} users and failed to ban {} users.'.format(len(members), len(failed_ids)))
+
     @Plugin.command('tempban', '<user:user|snowflake> <duration:str> [reason:str...]', level=CommandLevels.MOD)
     def tempban(self, event, duration, user, reason=None):
         member = event.guild.get_member(user)
         if member:
             self.can_act_on(event, member.id)
             expires_dt = parse_duration(duration)
+            if event.config.limit_temp.duration_limit_level:
+                if event.user_level <= event.config.limit_temp.duration_limit_level:
+                    if expires_dt > parse_duration(event.config.limit_temp.maximum_limited_duration):
+                        raise CommandFail('You cannot temp ban users for longer than ' + event.config.limit_temp.maximum_limited_duration)
+            if event.config.notify_action_on:
+                if event.config.notify_action_on.bans:    
+                    try:
+                        event.guild.get_member(user.id).user.open_dm().send_message('You have been **Temporarily Banned** in the guild **{}** for **{}** for `{}`'.format(event.guild.name, humanize.naturaldelta(expires_dt - datetime.utcnow()), reason or 'no reason specified.'))
+                    except:
+                        pass
+                else:
+                     pass
+            else:
+                pass
+
             Infraction.tempban(self, event, member, reason, expires_dt)
             self.queue_infractions()
             self.confirm_action(event, maybe_string(
@@ -709,6 +848,17 @@ class InfractionsPlugin(Plugin):
         member = event.guild.get_member(user)
         if member:
             self.can_act_on(event, member.id)
+            if event.config.notify_action_on:
+                if event.config.notify_action_on.bans:    
+                    try:
+                        event.guild.get_member(user.id).user.open_dm().send_message('You have been **Warned** in the guild **{}** for the reason: `{}`'.format(event.guild.name, reason or 'no reason specified.'))
+                    except:
+                        pass
+                else:
+                    pass
+            else:
+                pass
+
             Infraction.warn(self, event, member, reason, guild=event.guild)
         else:
             raise CommandFail('invalid user')

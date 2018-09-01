@@ -26,7 +26,7 @@ class InternalPlugin(Plugin):
         self.lock = Semaphore()
         self.cache = []
 
-    @Plugin.command('errors', group='commands', level=-1)
+    @Plugin.command('errors', group='commands', level=1000)
     def on_commands_errors(self, event):
         q = Command.select().join(
             Message, on=(Command.message_id == Message.id)
@@ -42,7 +42,7 @@ class InternalPlugin(Plugin):
 
         event.msg.reply(tbl.compile())
 
-    @Plugin.command('info', '<mid:snowflake>', group='commands', level=-1)
+    @Plugin.command('info', '<mid:snowflake>', group='commands', level=1000)
     def on_commands_info(self, event, mid):
         cmd = Command.select(Command, Message, Channel).join(
             Message, on=(Command.message_id == Message.id).alias('message')
@@ -69,7 +69,7 @@ class InternalPlugin(Plugin):
         embed.add_field(name='Guild', value=unicode(cmd.message.guild_id))
         event.msg.reply(embed=embed)
 
-    @Plugin.command('usage', group='commands', level=-1)
+    @Plugin.command('usage', group='commands', level=1000)
     def on_commands_usage(self, event):
         q = Command.select(
             fn.COUNT('*'),
@@ -87,7 +87,7 @@ class InternalPlugin(Plugin):
 
         event.msg.reply(tbl.compile())
 
-    @Plugin.command('stats', '<name:str>', group='commands', level=-1)
+    @Plugin.command('stats', '<name:str>', group='commands', level=1000)
     def on_commands_stats(self, event, name):
         if '.' in name:
             plugin, command = name.split('.', 1)
@@ -116,16 +116,16 @@ class InternalPlugin(Plugin):
             error
         ))
 
-    @Plugin.command('throw', level=-1)
+    @Plugin.command('throw', level=1000)
     def on_throw(self, event):
         raise Exception('Internal.throw')
 
-    @Plugin.command('add', '<name:str>', group='events', level=-1)
+    @Plugin.command('add', '<name:str>', group='events', level=1000)
     def on_events_add(self, event, name):
         self.events.add(name)
         event.msg.reply(':ok_hand: added {} to the list of tracked events'.format(name))
 
-    @Plugin.command('remove', '<name:str>', group='events', level=-1)
+    @Plugin.command('remove', '<name:str>', group='events', level=1000)
     def on_events_remove(self, event, name):
         self.events.remove(name)
         event.msg.reply(':ok_hand: removed {} from the list of tracked events'.format(name))

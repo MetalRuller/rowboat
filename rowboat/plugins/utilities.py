@@ -3,6 +3,7 @@ import requests
 import humanize
 import operator
 import gevent
+import disco
 
 from six import BytesIO
 from PIL import Image
@@ -17,6 +18,7 @@ from disco.util.snowflake import to_datetime
 from disco.util.sanitize import S
 
 from rowboat.plugins import RowboatPlugin as Plugin, CommandFail
+from disco.bot import CommandLevels
 from rowboat.util.timing import Eventual
 from rowboat.util.input import parse_duration
 from rowboat.util.gevent import wait_many
@@ -44,6 +46,16 @@ def get_status_emoji(presence):
     elif presence.status in (Status.OFFLINE, Status.INVISIBLE):
         return STATUS_EMOJI[Status.OFFLINE], 'Offline'
 
+
+def default_color(avatar_color):
+    switcher = {
+        'blurple': "https://cdn.discordapp.com/embed/avatars/0.png",
+        'grey': "https://cdn.discordapp.com/embed/avatars/1.png",
+        'green': "https://cdn.discordapp.com/embed/avatars/2.png",
+        'orange': "https://cdn.discordapp.com/embed/avatars/3.png",
+        'red': "https://cdn.discordapp.com/embed/avatars/4.png"
+    }
+    return switcher.get(avatar_color)
 
 def get_emoji_url(emoji):
     return CDN_URL.format('-'.join(
@@ -105,7 +117,7 @@ class UtilitiesPlugin(Plugin):
         # Sometimes random.cat gives us gifs (smh)
         for _ in range(5):
             try:
-                r = requests.get('http://random.cat/meow')
+                r = requests.get('http://aws.random.cat/meow')
                 r.raise_for_status()
             except:
                 continue
@@ -123,23 +135,44 @@ class UtilitiesPlugin(Plugin):
 
     @Plugin.command('dog', global_=True)
     def dog(self, event):
-        # Sometimes random.cat gives us gifs (smh)
-        for _ in range(5):
+        # Sometimes random.dog gives us gifs or mp4s (smh)
+        for _ in range(3):
             try:
-                r = requests.get('http://random.dog/woof.json')
+                r = requests.get('https://random.dog/woof.json')
                 r.raise_for_status()
             except:
                 continue
-
+            
             url = r.json()['url']
-            if not url.endswith('.JPG') and not url.endswith('.mp4') and not url.endswith('.gif'):
+            if not url.endswith('.gif') or not url.endswith('.mp4'):
                 break
         else:
-            return event.msg.reply('404 doggo not found :(')
+            return event.msg.reply('404 dog not found :(')
 
         r = requests.get(url)
         r.raise_for_status()
         event.msg.reply('', attachments=[('dog.jpg', r.content)])
+
+    @Plugin.command('bird', aliases=['birb'], global_=True)
+    def bird(self, event):
+        # Sometimes random.birb gives us gifs or mp4s (smh)
+        for _ in range(3):
+            try:
+                r = requests.get('https://random.birb.pw/tweet.json/')
+                r.raise_for_status()
+            except:
+                continue
+            
+            name = r.json()['file']
+            if not name.endswith('.gif') or not name.endswith('.mp4'):
+                break
+        else:
+            return event.msg.reply('404 bird not found :(')
+
+        r = requests.get('https://random.birb.pw/img/' + name)
+        r.raise_for_status()
+        event.msg.reply('', attachments=[('bird.jpg', r.content)])
+
 
     @Plugin.command('emoji', '<emoji:str>', global_=True)
     def emoji(self, event, emoji):
