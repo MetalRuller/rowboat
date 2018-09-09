@@ -61,6 +61,7 @@ class PersistConfig(SlottedModel):
     voice = Field(bool, default=False)
 
     role_ids = ListField(snowflake, default=[])
+    all_roles = Field(bool, default=False)
 
 
 class AdminConfig(PluginConfig):
@@ -100,7 +101,7 @@ class AdminPlugin(Plugin):
         if event.config.persist.roles:
             roles = set(event.guild.roles.keys())
 
-            if event.config.persist.role_ids:
+            if event.config.persist.role_ids and not event.config.persist.all_roles:
                 roles &= set(event.config.persist.role_ids)
 
             roles = set(backup.roles) & roles

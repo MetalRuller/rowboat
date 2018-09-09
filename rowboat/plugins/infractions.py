@@ -509,6 +509,13 @@ class InfractionsPlugin(Plugin):
                     u=member.user,
                     t=humanize.naturaldelta(duration - datetime.utcnow()),
                 ))
+                if event.config.notify_action_on and event.config.notify_action_on.mutes:
+                    try:
+                        event.guild.get_member(user.id).user.open_dm().send_message('You have been **Muted** in the guild **{}**  for `{}`'.format(event.guild.name, reason or 'no reason specified.'))
+                    except:
+                        pass
+                else:
+                    pass
             else:
                 existed = False
                 # If the user is already muted check if we can take this from a temp
@@ -686,7 +693,7 @@ class InfractionsPlugin(Plugin):
             if event.config.notify_action_on:
                 if event.config.notify_action_on.kicks:
                     try:
-                        event.guild.get_member(user.id).user.open_dm().send_message('You have been **Kicked** from the guild **{}** for `{}`'.format(event.guild.name, reason or 'no reason'))  
+                        member.user.open_dm().send_message('You have been **Kicked** from the guild **{}** for `{}`'.format(event.guild.name, reason or 'no reason'))  
                     except:
                         pass
                 else:
@@ -695,7 +702,7 @@ class InfractionsPlugin(Plugin):
                 pass
             Infraction.kick(self, event, member, args.reason)
 
-        raise CommandSuccess('kicked {} users. Was unable to remove {} users.'.format(len(members, len(failed_ids))))
+        raise CommandSuccess('kicked {} users. Was unable to remove {} users.'.format(len(members), len(failed_ids)))
 
     @Plugin.command('ban', '<user:user|snowflake> [reason:str...]', level=CommandLevels.MOD)
     @Plugin.command('forceban', '<user:snowflake> [reason:str...]', level=CommandLevels.MOD)
@@ -766,7 +773,7 @@ class InfractionsPlugin(Plugin):
         for user_id in args.users:
             if not self.can_act_on(event, user_id, throw=False):
                 # raise CommandFail('failed to kick {}, invalid permissions'.format(user_id))
-                failed_ids.append(member)
+                failed_ids.append(user_id)
                 continue               
 
 
