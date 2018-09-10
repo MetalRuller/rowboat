@@ -129,6 +129,14 @@ MEMBER_ROLE_ADD:
 MEMBER_ROLE_REMOVE:
   emoji: key
   format: "{member!s} (`{member.id}`) role removed **{role.name}** by **{actor!s}**: `{reason!s}`"
+  
+MEMBER_TEMPROLE_ADD:
+  emoji: key
+  format: "{member!s} (`{member.id}`) temprole **{role.name}** until {expires} by **{actor!s}**: `{reason!s}`"
+
+MEMBER_TEMPROLE_EXPIRE:
+  emoji: key
+  format: "{member!s} (`{member.id}`) temprole expired **{rolename}**"
 
 MEMBER_BAN:
   emoji: rotating_light

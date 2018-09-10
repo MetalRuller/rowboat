@@ -125,7 +125,7 @@ class InfractionsPlugin(Plugin):
                     user=unicode(self.state.users.get(item.user_id) or item.user_id),
                     inf=item
                 )
-            elif type_ == Infraction.Types.TEMPMUTE or Infraction.Types.TEMPROLE:
+            elif type_ == Infraction.Types.TEMPMUTE:
                 member = guild.get_member(item.user_id)
                 if member:
                     if item.metadata['role'] in member.roles:
@@ -151,6 +151,33 @@ class InfractionsPlugin(Plugin):
                         item.guild_id,
                         item.user_id,
                         item.metadata['role'])
+            elif type_ == Infraction.Types.TEMPROLE:
+                member = guild.get_member(item.user_id)
+                if member:
+                    if item.metadata['role'] in member.roles:
+                        self.call(
+                            'ModLogPlugin.create_debounce',
+                            guild.id,
+                            ['GuildMemberUpdate'],
+                            user_id=item.user_id,
+                            role_id=item.metadata['role'],
+                        )
+
+                        member.remove_role(item.metadata['role'])
+
+                        self.call(
+                            'ModLogPlugin.log_action_ext',
+                            Actions.MEMBER_TEMPROLE_EXPIRE,
+                            guild.id,
+                            member=member,
+                            inf=item,
+                            rolename=item.metadata['rolename']
+                        )
+                else:
+                    GuildMemberBackup.remove_role(
+                        item.guild_id,
+                        item.user_id,
+                        item.metadata['role'])
             else:
                 self.log.warning('[INF] failed to clear infraction %s, type is invalid %s', item.id, item.type_)
                 continue
@@ -160,8 +187,15 @@ class InfractionsPlugin(Plugin):
             item.save()
 
         # Wait a few seconds to backoff from a possible bad loop, and requeue new infractions
-        gevent.sleep(5)
+        gevent.sleep(8)
         self.queue_infractions()
+
+    def is_global_admin(self, userid):
+        global_admin = rdb.sismember('global_admins', userid)
+        _usr = User.select().where(User.user_id == userid)
+        if len(_usr) == 1:
+            global_admin = _usr[0].admin
+        return global_admin
 
     @Plugin.listen('GuildMemberUpdate', priority=Priority.BEFORE)
     def on_guild_member_update(self, event):
@@ -399,7 +433,7 @@ class InfractionsPlugin(Plugin):
         raise CommandSuccess('I\'ve updated the reason for infraction #{}'.format(inf.id))
 
     def can_act_on(self, event, victim_id, throw=True):
-        global_admin = rdb.sismember('global_admins', event.author.id)
+        global_admin = self.is_global_admin(event.author.id)
         if event.author.id == victim_id and not global_admin:
             if not throw:
                 return False

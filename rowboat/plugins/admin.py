@@ -203,8 +203,15 @@ class AdminPlugin(Plugin):
         else:
             raise CommandFail('I couldn\t find any member backups for that user')
 
+    def is_global_admin(self, userid):
+        global_admin = rdb.sismember('global_admins', userid)
+        _usr = User.select().where(User.user_id == userid)
+        if len(_usr) == 1:
+            global_admin = _usr[0].admin
+        return global_admin
+
     def can_act_on(self, event, victim_id, throw=True):
-        global_admin = rdb.sismember('global_admins', event.author.id)
+        global_admin = self.is_global_admin(event.author.id)
         if event.author.id == victim_id and not global_admin:
             if not throw:
                 return False
@@ -395,7 +402,7 @@ class AdminPlugin(Plugin):
             raise CommandFail('too many matches for that role, try something more exact or the role ID')
 
         author_member = event.guild.get_member(event.author)
-        global_admin = rdb.sismember('global_admins', event.author.id)
+        global_admin = self.is_global_admin(event.author.id)
         highest_role = sorted(
             [event.guild.roles.get(r) for r in author_member.roles],
             key=lambda i: i.position,

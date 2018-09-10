@@ -29,6 +29,7 @@ from rowboat.models.guild import Guild, GuildBan
 from rowboat.models.message import Command
 from rowboat.models.notification import Notification
 from rowboat.plugins.modlog import Actions
+from rowboat.models.user import User
 from rowboat.constants import (
     GREEN_TICK_EMOJI, RED_TICK_EMOJI, ROWBOAT_GUILD_ID, ROWBOAT_USER_ROLE_ID, GREEN_TICK_EMOJI_NORMAL, RED_TICK_EMOJI_REACT
 )
@@ -77,6 +78,14 @@ class CorePlugin(Plugin):
     def spawn_wait_for_actions(self, *args, **kwargs):
         self._wait_for_actions_greenlet = self.spawn(self.wait_for_actions)
         self._wait_for_actions_greenlet.link_exception(self.spawn_wait_for_actions)
+
+    def is_global_admin(self, userid):
+        global_admin = rdb.sismember('global_admins', userid)
+        _usr = User.select().where(User.user_id == userid)
+        if len(_usr) == 1:
+            global_admin = _usr[0].admin
+        return global_admin
+
 
     def our_add_plugin(self, cls, *args, **kwargs):
         if getattr(cls, 'global_plugin', False):
@@ -463,12 +472,12 @@ class CorePlugin(Plugin):
 
         # Grab whether this user is a global admin
         # TODO: cache this
-        global_admin = rdb.sismember('global_admins', event.author.id)
+        global_admin = self.is_global_admin(event.author.id)
         #global_admin = False
 
         # Iterate over commands and find a match
         for command, match in commands:
-            if command.level == -1 and not global_admin:
+            if command.level < 0 and not global_admin:
                 continue
 
             if command.level > 999 and not global_admin:
@@ -545,7 +554,7 @@ class CorePlugin(Plugin):
         if event.guild.id in self.guilds:
             return event.msg.reply(':warning: this server is already setup')
 
-        global_admin = rdb.sismember('global_admins', event.author.id)
+        global_admin = self.is_global_admin(event.author.id)
 
         # Make sure this is the owner of the server
         if not global_admin:
@@ -569,7 +578,11 @@ class CorePlugin(Plugin):
         embed.description = BOT_INFO
         embed.add_field(name='Servers', value=str(Guild.select().count()), inline=True)
         embed.add_field(name='Uptime', value=humanize.naturaldelta(datetime.utcnow() - self.startup), inline=True)
-        global_admin = rdb.sismember('global_admins', event.author.id)
+        #global_admin = rdb.sismember('global_admins', event.author.id)
+        #_usr = User.select().where(User.user_id == event.author.id)
+        #if len(_usr) == 1:
+        #    global_admin = _usr[0].admin
+        global_admin = self.is_global_admin(event.author.id)
         if global_admin:
             embed.add_field(name='Admin', value='You are a rowboat global admin!')
         event.msg.reply(embed=embed)

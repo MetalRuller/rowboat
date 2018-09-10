@@ -164,9 +164,28 @@ class Infraction(BaseModel):
 
     @classmethod
     def temprole(cls, plugin, event, member, role_id, reason, expires_at):
+        from rowboat.plugins.modlog import Actions
         User.from_disco_user(member.user)
 
+        plugin.call(
+            'ModLogPlugin.create_debounce',
+            event,
+            ['GuildMemberUpdate'],
+            role_id=role_id,
+        )
+
+        role_obj = event.guild.roles[int(role_id)]
         # TODO: modlog
+        plugin.call(
+            'ModLogPlugin.log_action_ext',
+            Actions.MEMBER_TEMPROLE_ADD,
+            event.guild.id,
+            member=member,
+            actor=unicode(event.author) if event.author.id != member.user.id else 'Automatic',
+            role=role_obj,
+            reason=reason or 'no reason',
+			expires=expires_at
+        )
 
         member.add_role(role_id, reason=reason)
 
@@ -177,7 +196,7 @@ class Infraction(BaseModel):
             type_=cls.Types.TEMPROLE,
             reason=reason,
             expires_at=expires_at,
-            metadata={'role': role_id})
+            metadata={'role': role_id, 'role_name': role_obj.name})
 
     @classmethod
     def kick(cls, plugin, event, member, reason):
