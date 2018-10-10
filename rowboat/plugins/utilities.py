@@ -84,14 +84,14 @@ class UtilitiesPlugin(Plugin):
 
         self.reminder_task.set_next_schedule(next_reminder.remind_at)
 
-    @Plugin.command('coin', group='random', global_=True)
+    @Plugin.command('coin', group='random', global_=True, level=CommandLevels.TRUSTED)
     def coin(self, event):
         """
         Flip a coin
         """
         event.msg.reply(random.choice(['heads', 'tails']))
 
-    @Plugin.command('number', '[end:int] [start:int]', group='random', global_=True)
+    @Plugin.command('number', '[end:int] [start:int]', group='random', global_=True, level=CommandLevels.TRUSTED)
     def random_number(self, event, end=10, start=0):
         """
         Returns a random number
@@ -106,13 +106,7 @@ class UtilitiesPlugin(Plugin):
 
         event.msg.reply(str(random.randint(start, end)))
 
-    @Plugin.command('kitten', global_=True)
-    @Plugin.command('neko', global_=True)
-    @Plugin.command('kitty', global_=True)
-    @Plugin.command('kitkat', global_=True)
-    @Plugin.command('fatbitch', global_=True)
-    @Plugin.command('pussy', global_=True)
-    @Plugin.command('cat', global_=True)
+    @Plugin.command('cat', global_=True, aliases=['kitten', 'kitty', 'kitkat', 'fatbitch', 'pussy', 'neko'], level=CommandLevels.TRUSTED)
     def cat(self, event):
         # Sometimes random.cat gives us gifs (smh)
         for _ in range(5):
@@ -133,7 +127,7 @@ class UtilitiesPlugin(Plugin):
         event.msg.reply('', attachments=[('cat.jpg', r.content)])
 
 
-    @Plugin.command('dog', global_=True)
+    @Plugin.command('dog', global_=True, level=CommandLevels.TRUSTED)
     def dog(self, event):
         # Sometimes random.dog gives us gifs or mp4s (smh)
         for _ in range(3):
@@ -153,7 +147,7 @@ class UtilitiesPlugin(Plugin):
         r.raise_for_status()
         event.msg.reply('', attachments=[('dog.jpg', r.content)])
 
-    @Plugin.command('bird', aliases=['birb'], global_=True)
+    @Plugin.command('bird', aliases=['birb'], global_=True, level=CommandLevels.TRUSTED)
     def bird(self, event):
         # Sometimes random.birb gives us gifs or mp4s (smh)
         for _ in range(3):
@@ -174,7 +168,7 @@ class UtilitiesPlugin(Plugin):
         event.msg.reply('', attachments=[('bird.jpg', r.content)])
 
 
-    @Plugin.command('emoji', '<emoji:str>', global_=True)
+    @Plugin.command('emoji', '<emoji:str>', global_=True, level=0)
     def emoji(self, event, emoji):
         if not EMOJI_RE.match(emoji):
             return event.msg.reply(u'Unknown emoji: `{}`'.format(emoji))
@@ -194,7 +188,7 @@ class UtilitiesPlugin(Plugin):
         r.raise_for_status()
         return event.msg.reply('\n'.join(fields), attachments=[('emoji.png', r.content)])
 
-    @Plugin.command('urban', '<term:str...>', global_=True)
+    @Plugin.command('urban', '<term:str...>', global_=True, level=0)
     def urban(self, event, term):
         r = requests.get('http://api.urbandictionary.com/v0/define', params={
             'term': term,
@@ -210,7 +204,7 @@ class UtilitiesPlugin(Plugin):
             S(data['list'][0]['definition']),
         ))
 
-    @Plugin.command('pwnd', '<email:str>', global_=True)
+    @Plugin.command('pwnd', '<email:str>', global_=True, level=CommandLevels.TRUSTED)
     def pwnd(self, event, email):
         r = requests.get('https://haveibeenpwned.com/api/v2/breachedaccount/{}'.format(
             email
@@ -236,7 +230,7 @@ class UtilitiesPlugin(Plugin):
             '\n'.join(sites),
         ))
 
-    @Plugin.command('geoip', '<ip:str>', global_=True)
+    @Plugin.command('geoip', '<ip:str>', global_=True, level=CommandLevels.TRUSTED)
     def geoip(self, event, ip):
         r = requests.get('http://json.geoiplookup.io/{}'.format(ip))
         r.raise_for_status()
@@ -251,7 +245,7 @@ class UtilitiesPlugin(Plugin):
             data['longitude'],
         ))
 
-    @Plugin.command('jumbo', '<emojis:str...>', global_=True)
+    @Plugin.command('jumbo', '<emojis:str...>', global_=True, level=0)
     def jumbo(self, event, emojis):
         urls = []
         names = []
@@ -289,7 +283,7 @@ class UtilitiesPlugin(Plugin):
         combined.seek(0)
         return event.msg.reply('', attachments=[('{}.png'.format('-'.join(names)), combined)])
 
-    @Plugin.command('seen', '<user:user>', global_=True)
+    @Plugin.command('seen', '<user:user>', global_=True, level=0)
     def seen(self, event, user):
         try:
             msg = Message.select(Message.timestamp).where(
@@ -304,7 +298,7 @@ class UtilitiesPlugin(Plugin):
             msg.timestamp
         ))
 
-    @Plugin.command('search', '<query:str...>', global_=True)
+    @Plugin.command('search', '<query:str...>', global_=True, level=0)
     def search(self, event, query):
         queries = []
 
@@ -336,7 +330,7 @@ class UtilitiesPlugin(Plugin):
             u'\n'.join(map(lambda i: u'{} ({})'.format(unicode(i), i.user_id), users[:25]))
         ))
 
-    @Plugin.command('server', '[guild_id:snowflake]', global_=True)
+    @Plugin.command('server', '[guild_id:snowflake]', global_=True, level=CommandLevels.TRUSTED)
     def server(self, event, guild_id=None):
         guild = self.state.guilds.get(guild_id) if guild_id else event.guild
         if not guild:
@@ -381,7 +375,7 @@ class UtilitiesPlugin(Plugin):
         embed.description = '\n'.join(content)
         event.msg.reply('', embed=embed)
 
-    @Plugin.command('info', '<user:user>')
+    @Plugin.command('info', '<user:user>', level=CommandLevels.TRUSTED)
     def info(self, event, user):
         content = []
         content.append(u'**\u276F User Information**')
@@ -563,13 +557,13 @@ class UtilitiesPlugin(Plugin):
 
         reminder.delete_instance()
 
-    @Plugin.command('clear', group='r', global_=True)
+    @Plugin.command('clear', group='r', global_=True, level=CommandLevels.TRUSTED)
     def cmd_remind_clear(self, event):
         count = Reminder.delete_for_user(event.author.id)
         return event.msg.reply(':ok_hand: I cleared {} reminders for you'.format(count))
 
-    @Plugin.command('add', '<duration:str> <content:str...>', group='r', global_=True)
-    @Plugin.command('remind', '<duration:str> <content:str...>', global_=True)
+    @Plugin.command('add', '<duration:str> <content:str...>', group='r', global_=True, level=CommandLevels.TRUSTED)
+    @Plugin.command('remind', '<duration:str> <content:str...>', global_=True, level=CommandLevels.TRUSTED)
     def cmd_remind(self, event, duration, content):
         if Reminder.count_for_user(event.author.id) > 14:
             return event.msg.reply(':warning: you can only have 15 reminders going at once!')
