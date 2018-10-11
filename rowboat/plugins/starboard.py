@@ -618,5 +618,9 @@ class StarboardPlugin(Plugin):
 
         embed.timestamp = msg.timestamp.isoformat()
         embed.color = config.get_color(len(star.stars))
+        embed.add_field(name='Message', value='[Link to message]'
+                        '(https://discordapp.com/channels/{}/{}/{})'.format(msg.guild.id,
+                                                                            msg.channel_id,
+                                                                            msg.id))
 
         return content, embed
