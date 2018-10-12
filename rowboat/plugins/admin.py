@@ -30,7 +30,7 @@ from rowboat.models.user import User
 from rowboat.models.guild import GuildMemberBackup, GuildEmoji, GuildVoiceSession
 from rowboat.models.message import Message, Reaction, MessageArchive
 from rowboat.constants import (
-    GREEN_TICK_EMOJI_ID, RED_TICK_EMOJI_ID, GREEN_TICK_EMOJI, RED_TICK_EMOJI, GREEN_TICK_EMOJI_NORMAL, RED_TICK_EMOJI_REACT
+    GREEN_TICK_EMOJI_ID, RED_TICK_EMOJI_ID, GREEN_TICK_EMOJI, RED_TICK_EMOJI, GREEN_TICK_EMOJI_NORMAL, RED_TICK_EMOJI_REACT, ROWBOAT_BOT_USERID
 )
 
 EMOJI_RE = re.compile(r'<:[a-zA-Z0-9_]+:([0-9]+)>')
@@ -53,7 +53,7 @@ ORDER BY 3 {}
 LIMIT 30
 """
 
-B1NZY_USER_ID = 80351110224678912
+
 
 class PersistConfig(SlottedModel):
     roles = Field(bool, default=False)
@@ -92,7 +92,7 @@ class AdminPlugin(Plugin):
 
     def restore_user(self, event, member):
         try:
-            backup = GuildMemberBackup.get(guild_id=event.guild_id, user_id=member.user.id)
+            backup = GuildMemberBackup.get(guild_id=event.guild.id, user_id=member.user.id)
         except GuildMemberBackup.DoesNotExist:
             return
 
@@ -100,6 +100,23 @@ class AdminPlugin(Plugin):
 
         if event.config.persist.roles:
             roles = set(event.guild.roles.keys())
+
+
+
+            bot_member = event.guild.get_member(ROWBOAT_BOT_USERID)
+
+            highest_role = sorted(
+                [event.guild.roles.get(r) for r in bot_member.roles],
+                key=lambda i: i.position,
+                reverse=True)
+
+            roles2 = []
+            for role in event.guild.roles.values():
+                if highest_role[0].position > role.position:
+                    roles2.append(role.id)
+
+            roles &= set(roles2)
+
 
             if event.config.persist.role_ids and not event.config.persist.all_roles:
                 roles &= set(event.config.persist.role_ids)
